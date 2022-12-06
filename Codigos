@@ -1,0 +1,7990 @@
+##### 1
+
+
+library(writexl)
+library(stringi)
+library(stringr)
+library(xts)
+library(readr)
+
+##################Baixando os dados
+
+#Ibov
+ibov <- read_delim("Data/ibov.csv", delim = ";", 
+                   escape_double = FALSE, col_names = FALSE, 
+                   trim_ws = TRUE)
+
+#Ewz
+ewz <- read_delim("Data/ewz.csv", delim = ";", 
+                   escape_double = FALSE, col_names = FALSE, 
+                   trim_ws = TRUE)
+
+#sp500
+sp <- read_delim("Data/sp500.csv", delim = ";", 
+                   escape_double = FALSE, col_names = FALSE, 
+                   trim_ws = TRUE)
+
+#spxi11
+spxi <- read_delim("Data/SPXI11.csv", delim = ";", 
+                   escape_double = FALSE, col_names = FALSE, 
+                   trim_ws = TRUE)
+
+#cambio
+c <- read_delim("Data/EUSCOM.csv", delim = ";", 
+                   escape_double = FALSE, col_names = FALSE, 
+                   trim_ws = TRUE)
+
+
+
+
+#So verificando
+head(ibov)
+head(ewz)
+head(sp)
+head(spxi)
+head(c)
+
+#Nomeando as Colunas
+
+
+colnames(ibov)<-c("Data","Hora","Open","high","Low","Close","Neg","Volume")
+colnames(ewz)<-c("Data","Hora","Open","high","Low","Close","Neg","Volume")
+colnames(sp)<-c("Data","Hora","Open","high","Low","Close","Neg","Volume")
+colnames(spxi)<-c("Data","Hora","Open","high","Low","Close","Neg","Volume")
+colnames(c)<-c("Data","Hora","Open","high","Low","Close","Neg","Volume")
+
+#Arrumando Hora
+
+#Ibov
+Mibov<-stri_sub(ibov$Hora,-2)
+
+ibov$H1ibov1<-str_extract(ibov$Hora, "^\\d{1}")
+
+ibov$H1ibov2<-str_extract(ibov$Hora, "^\\d{2}")
+
+
+
+for(i in 1:nrow(ibov)){
+  
+  if(ibov$H1ibov1[i]==9){ibov$H1ibov2[i]<-"09"}
+  
+}
+
+
+HMibov<-str_c(ibov$H1ibov2,Mibov, sep=":")
+
+
+
+#EWZ
+#O horário do EWZ começa e 9:30. Pegar os dois últimos para minuto e montar loop p hora
+
+Mewz<-stri_sub(ewz$Hora,-2)
+
+ewz$H1ewz1<-str_extract(ewz$Hora, "^\\d{1}")
+
+ewz$H1ewz2<-str_extract(ewz$Hora, "^\\d{2}")
+
+
+
+for(i in 1:nrow(ewz)){
+
+  if(ewz$H1ewz1[i]==9){ewz$H1ewz2[i]<-"09"}
+
+}
+
+HMewz<-str_c(ewz$H1ewz2,Mewz, sep=":")
+
+
+
+
+#sp500
+#O horário do sp500 começa e 9:30. Pegar os dois últimos para minuto e montar loop p hora
+
+Msp<-stri_sub(sp$Hora,-2)
+
+sp$H1sp1<-str_extract(sp$Hora, "^\\d{1}")
+
+sp$H1sp2<-str_extract(sp$Hora, "^\\d{2}")
+
+
+
+for(i in 1:nrow(sp)){
+  
+  if(sp$H1sp1[i]==9){sp$H1sp2[i]<-"09"}
+  
+}
+
+HMsp<-str_c(sp$H1sp2,Msp, sep=":")
+
+
+#SPXI11
+
+Hspxi<-str_extract(spxi$Hora, "^\\d{2}")
+
+Mspxi<-stri_sub(spxi$Hora,-2)
+
+HMspxi<-str_c(Hspxi,Mspxi, sep=":")
+
+
+
+#Cambio, se 0 entenda-se 9:00
+
+
+#Hora
+
+c$H1c1<-str_extract(c$Hora, "^\\d{1}")
+
+c$H1c2<-str_extract(c$Hora, "^\\d{2}")
+
+
+
+for(i in 1:nrow(c)){
+  
+  if(c$H1c1[i]==9 | c$H1c1[i]==0  ){c$H1c2[i]<-"09"}
+  
+}
+
+
+#Minuto
+
+#Mc<-stri_sub(c$Hora,-2)
+
+c$Mc1<-stri_sub(c$Hora,-2)
+
+
+#View(c)
+
+
+for(i in 1:nrow(c)){
+  if(c$H1c1[i]=="0"){
+    if(c$H1c2[i]=="09"){
+      c$Mc1[i]<-"00"
+    }
+  }
+}
+  
+  
+HMc<-str_c(c$H1c2,c$Mc1, sep=":")
+
+
+
+
+
+
+#####Organizando as Datas e Horas
+
+DataIbov<-str_c(ibov$Data,HMibov, sep = " ")
+DataEwz<-str_c(ewz$Data,HMewz, sep = " ")
+DataSp<-str_c(sp$Data,HMsp, sep = " ")
+DataSpxi<-str_c(spxi$Data,HMspxi, sep = " ")
+DataC<-str_c(c$Data,HMc, sep = " ")
+
+###Transformando em formato Date-Hora via POSIXlt
+
+d1<-as.POSIXlt(DataIbov, format="%Y-%m-%d %H:%M", TZ= Sys.timezone() )
+d2<-as.POSIXlt(DataEwz, format="%Y-%m-%d %H:%M", TZ= Sys.timezone() )
+d3<-as.POSIXlt(DataSp, format="%Y-%m-%d %H:%M", TZ= Sys.timezone() )
+d4<-as.POSIXlt(DataSpxi, format="%Y-%m-%d %H:%M", TZ= Sys.timezone() )
+d5<-as.POSIXlt(DataC, format="%Y-%m-%d %H:%M", TZ= Sys.timezone() )
+
+
+
+
+
+
+
+
+#Criando arquivos xts # E corrigindo possíveis erros
+
+
+ibov$hey<-d1
+
+ibov<-na.omit(ibov)
+
+bibov<-ibov
+
+for(i in 1:nrow(bibov)){
+  if(is.na(bibov$hey[i])){print(i)}
+}
+
+
+bibov<-ibov[-c(402606,402607),]
+
+
+
+
+c$hey<-d5
+
+c<-na.omit(c)
+
+c
+
+z<-vector()
+
+for(i in 1:nrow(c)){
+  if(is.na(c$hey[i])){
+    print(i)
+    z[i]<-i
+    
+    }
+}
+
+j<-na.omit(z)
+cc<-c[-j,]
+Ibov<-xts(bibov$Close, order.by = bibov$hey)
+Ewz<-xts(ewz$Close, order.by = d2)
+
+Sp<-xts(sp$Close, order.by = d3)
+Spxi<-xts(spxi$Close, order.by = d4)
+
+Ca<-xts(cc$Close, order.by = cc$hey)
+
+###Verificando se há algum problema nos dados e divisão da amostra onde há erros
+par(mfrow=c(2,1))
+
+SWINdowI<-window(Ibov,   end= "2020-03-12 17:59:00")
+SWINdow<-window(Ibov, start = "2020-03-13 09:05:00", end="2020-04-02 17:59:00")
+SWINdowE<-window(Ibov, start = "2020-04-03 09:05:00")
+
+par(mfrow=c(2,1))
+
+plot.xts(Ibov)
+
+plot.ts(na.omit(SWINdow)) #Nesse período nenhuma vez o ibov ficou abaixo de 60.000. 
+
+
+SWINdow<-ifelse(SWINdow<60000,NA,Ibov)
+
+SWF<-rbind(SWINdowI,na.omit(SWINdow),SWINdowE)
+
+Ibov<-SWF
+
+
+
+#Montando os Pares
+
+ParBR<-na.omit(cbind(Ibov,Ewz,Ca))
+
+ParUSA<-na.omit(cbind(Sp,Spxi,Ca))
+
+Geral<-cbind(Ibov,Ewz,Sp,Spxi,Ca )
+
+
+#Salvando Banco de dados para BackUp
+
+# Save an object to a file
+saveRDS(Geral, file = "BackUp.rds")
+# Restore the object
+readRDS(file = "BackUp.rds")
+
+
+
+
+
+################# 2
+
+#Criando Frequências diferentes para as séries de tempo
+
+
+
+
+#Primeiro Par
+
+head(ParBR)
+
+#5
+ParBR5<-to.period(ParBR, period = "minutes", k=5, OHLC = FALSE)
+
+head(ParBR5)
+
+#10
+ParBR10<-to.period(ParBR, period = "minutes", k=10, OHLC = FALSE)
+
+head(ParBR10)
+
+
+#15
+
+ParBR15<-to.period(ParBR, period = "minutes", k=15, OHLC = FALSE)
+
+head(ParBR15)
+
+
+
+
+#Segundo Par
+
+
+
+head(ParUSA)
+
+#5
+ParUSA5<-to.period(ParUSA, period = "minutes", k=5, OHLC = FALSE)
+
+head(ParUSA5)
+
+#10
+ParUSA10<-to.period(ParUSA, period = "minutes", k=10, OHLC = FALSE)
+
+head(ParUSA10)
+
+
+#15
+
+ParUSA15<-to.period(ParUSA, period = "minutes", k=15, OHLC = FALSE)
+
+head(ParUSA15)
+
+
+
+
+######## 3
+
+###Separando em Intervalos de Tempo
+
+#Primeira Morte Ocorreu em 12 de Março
+
+
+
+
+
+
+#Separando em Pré e Covid
+
+#################################Pares BR
+
+# 5 Minutos
+
+ParBR5Pre<-window(ParBR5, start ="2018-12-27 10:44:00", end = "2020-03-10 10:00" )
+
+ParBR5Covid<-window(ParBR5, start ="2020-04-05 10:00" )
+
+
+plot.xts(ParBR15$Ibov, main="Ibovespa", col="red")
+plot.xts(ParBR15$Ewz, main="EWZ", col="blue")
+plot.xts(ParBR15$Ca, main="Exchange Rate", col="green")
+
+
+nrow(ParBR5Covid)
+
+among_BR5_<-window(ParBR5, start ="2020-03-10 10:00", end ="2020-04-05 10:00" )
+
+
+
+# 10 Minutos
+
+ParBR10Pre<-window(ParBR10, start ="2018-12-27 10:44:00", end = "2020-03-10 10:00" )
+
+ParBR10Covid<-window(ParBR10, start ="2020-04-05 10:00" )
+
+
+# 15 Minutos
+
+ParBR15Pre<-window(ParBR15, start ="2018-12-27 10:44:00", end = "2020-03-10 10:00" )
+
+ParBR15Covid<-window(ParBR15, start ="2020-04-05 10:00" )
+
+
+
+
+
+
+
+
+#################################Pares USA
+
+# 5 Minutos
+
+ParUSA5Pre<-window(ParUSA5, start ="2018-12-27 10:44:00", end = "2020-03-10 10:00" )
+
+ParUSA5Covid<-window(ParUSA5, start ="2020-04-05 10:00" )
+
+
+# 10 Minutos
+
+ParUSA10Pre<-window(ParUSA10, start ="2018-12-27 10:44:00", end = "2020-03-10 10:00" )
+
+ParUSA10Covid<-window(ParUSA10, start ="2020-04-05 10:00" )
+
+
+# 15 Minutos
+
+ParUSA15Pre<-window(ParUSA15, start ="2018-12-27 10:44:00", end = "2020-03-10 10:00" )
+
+ParUSA15Covid<-window(ParUSA15, start ="2020-04-05 10:00" )
+
+autoplot.zoo(ParBR5Pre$Ibov)
+autoplot.zoo(ParBR5Covid$Ibov)
+
+
+#  4
+
+#Pacotes
+library(astsa)
+library(tsDyn)
+library(urca)
+library(vars)
+library(PerformanceAnalytics)
+library(quantmod)
+library(KFAS)
+
+
+
+
+#Calculando Retornos
+
+
+
+########################Pares BR
+
+####Pre Covid
+
+# 5 Minutos
+
+R_ParBR5Pre<-CalculateReturns(ParBR5Pre, method = "log")[-1]
+
+# 10 Minutos
+
+R_ParBR10Pre<-CalculateReturns(ParBR10Pre, method = "log")[-1]
+
+# 15 Minutos
+
+R_ParBR15Pre<-CalculateReturns(ParBR15Pre, method = "log")[-1]
+
+
+####Pós Covid
+
+# 5 Minutos
+
+R_ParBR5Covid<-CalculateReturns(ParBR5Covid, method = "log")[-1]
+
+# 10 Minutos
+
+R_ParBR10Covid<-CalculateReturns(ParBR10Covid, method = "log")[-1]
+
+# 15 Minutos
+
+R_ParBR15Covid<-CalculateReturns(ParBR15Covid, method = "log")[-1]
+
+
+
+
+# Total
+
+# 5 minutos
+
+R_ParBR5<-CalculateReturns(ParBR5, method = "log")[-1]
+
+#10 Minutos
+R_ParBR10<-CalculateReturns(ParBR10, method = "log")[-1]
+
+#15 minutos
+R_ParBR15<-CalculateReturns(ParBR15, method = "log")[-1]
+
+
+
+
+
+
+
+
+########################Pares USA
+
+####Pre Covid
+
+# 5 Minutos
+
+R_ParUSA5Pre<-CalculateReturns(ParUSA5Pre, method = "log")[-1]
+
+# 10 Minutos
+
+R_ParUSA10Pre<-CalculateReturns(ParUSA10Pre, method = "log")[-1]
+
+# 15 Minutos
+
+R_ParUSA15Pre<-CalculateReturns(ParUSA15Pre, method = "log")[-1]
+
+
+
+
+
+
+
+####Pós Covid
+
+# 5 Minutos
+
+R_ParUSA5Covid<-CalculateReturns(ParUSA5Covid, method = "log")[-1]
+
+# 10 Minutos
+
+R_ParUSA10Covid<-CalculateReturns(ParUSA10Covid, method = "log")[-1]
+
+# 15 Minutos
+
+R_ParUSA15Covid<-CalculateReturns(ParUSA15Covid, method = "log")[-1]
+
+
+
+# Total
+
+# 5 minutos
+
+R_ParUSA5<-CalculateReturns(ParUSA5, method = "log")[-1]
+
+#10 Minutos
+R_ParUSA10<-CalculateReturns(ParUSA10, method = "log")[-1]
+
+#15 minutos
+R_ParUSA15<-CalculateReturns(ParUSA15, method = "log")[-1]
+
+
+
+# FACP e FAC para cada
+
+
+
+
+#########Par Brasil
+
+###############Pre
+
+####### 5 Minutos
+
+# Primeiro Valor
+
+acf2(R_ParBR5Pre$Ibov)
+
+# Segundo Valor
+
+acf2(R_ParBR5Pre$Ewz)
+
+# Terceiro Valor 
+
+acf2(R_ParBR5Pre$Ca)
+
+
+####### 10 Minutos
+
+# Primeiro Valor
+
+acf2(R_ParBR10Pre$Ibov)
+
+# Segundo Valor
+
+acf2(R_ParBR10Pre$Ewz)
+
+# Terceiro Valor 
+
+acf2(R_ParBR10Pre$Ca)
+
+
+
+
+####### 15 Minutos
+
+# Primeiro Valor
+
+acf2(R_ParBR15Pre$Ibov)
+
+# Segundo Valor
+
+acf2(R_ParBR15Pre$Ewz)
+
+# Terceiro Valor 
+
+acf2(R_ParBR15Pre$Ca)
+
+
+
+
+
+
+###############Pós Covid
+
+####### 5 Minutos
+
+# Primeiro Valor
+
+acf2(R_ParBR5Covid$Ibov)
+
+# Segundo Valor
+
+acf2(R_ParBR5Covid$Ewz)
+
+# Terceiro Valor 
+
+acf2(R_ParBR5Covid$Ca)
+
+
+####### 10 Minutos
+
+# Primeiro Valor
+
+acf2(R_ParBR10Covid$Ibov)
+
+# Segundo Valor
+
+acf2(R_ParBR10Covid$Ewz)
+
+# Terceiro Valor 
+
+acf2(R_ParBR10Covid$Ca)
+
+
+
+
+####### 15 Minutos
+
+# Primeiro Valor
+
+acf2(R_ParBR15Covid$Ibov)
+
+# Segundo Valor
+
+acf2(R_ParBR15Covid$Ewz)
+
+# Terceiro Valor 
+
+acf2(R_ParBR15Covid$Ca)
+
+
+
+
+
+
+
+
+
+
+
+
+
+#########Par Estados Unidos
+
+###############Pre
+
+####### 5 Minutos
+
+# Primeiro Valor
+
+acf2(R_ParUSA5Pre$Sp)
+
+# Segundo Valor
+
+acf2(R_ParUSA5Pre$Spxi)
+
+# Terceiro Valor 
+
+acf2(R_ParUSA5Pre$Ca)
+
+
+####### 10 Minutos
+
+# Primeiro Valor
+
+acf2(R_ParUSA10Pre$Sp)
+
+# Segundo Valor
+
+acf2(R_ParUSA10Pre$Spxi)
+
+# Terceiro Valor 
+
+acf2(R_ParUSA10Pre$Ca)
+
+
+
+
+####### 15 Minutos
+
+# Primeiro Valor
+
+acf2(R_ParUSA15Pre$Sp)
+
+# Segundo Valor
+
+acf2(R_ParUSA15Pre$Spxi)
+
+# Terceiro Valor 
+
+acf2(R_ParUSA15Pre$Ca)
+
+
+
+
+
+
+###############Pós Covid
+
+####### 5 Minutos
+
+# Primeiro Valor
+
+acf2(R_ParUSA5Covid$Sp)
+
+# Segundo Valor
+
+acf2(R_ParUSA5Covid$Spxi)
+
+# Terceiro Valor 
+
+acf2(R_ParUSA5Covid$Ca)
+
+
+####### 10 Minutos
+
+# Primeiro Valor
+
+acf2(R_ParUSA10Covid$Sp)
+
+# Segundo Valor
+
+acf2(R_ParUSA10Covid$Spxi)
+
+# Terceiro Valor 
+
+acf2(R_ParUSA10Covid$Ca)
+
+
+
+
+####### 15 Minutos
+
+# Primeiro Valor
+
+acf2(R_ParUSA15Covid$Sp)
+
+# Segundo Valor
+
+acf2(R_ParUSA15Covid$Spxi)
+
+# Terceiro Valor 
+
+acf2(R_ParUSA15Covid$Ca)
+
+
+
+
+
+######### Selecionando a ordem do VAR
+
+
+#Pares BR
+
+# Pré Covid
+
+# 5 Minutos
+
+VARselect(R_ParBR5Pre)   # 3
+
+# 10 Minutos
+
+VARselect(R_ParBR10Pre)  #6
+
+# 15 Minutos
+
+VARselect(R_ParBR15Pre)  #4
+
+
+
+# Pós Covid
+
+# 5 Minutos
+
+VARselect(R_ParBR5Covid)   #2
+
+# 10 Minutos
+
+VARselect(R_ParBR10Covid)  #6
+
+# 15 Minutos
+
+VARselect(R_ParBR15Covid)  #8
+
+
+
+
+# Total
+
+# 5 Minutos
+
+VARselect(R_ParBR5)   #3
+
+# 10 Minutos
+
+VARselect(R_ParBR10)  #7
+
+# 15 Minutos
+
+VARselect(R_ParBR15)  #8
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#Pares USA
+
+# Pré Covid
+
+# 5 Minutos
+
+VARselect(R_ParUSA5Pre)   # 5
+
+# 10 Minutos
+
+VARselect(R_ParUSA10Pre)  #4
+
+# 15 Minutos
+
+VARselect(R_ParUSA15Pre)  #5
+
+
+
+# Pós Covid
+
+# 5 Minutos
+
+VARselect(R_ParUSA5Covid)   #3
+
+# 10 Minutos
+
+VARselect(R_ParUSA10Covid)  #7
+
+# 15 Minutos
+
+VARselect(R_ParUSA15Covid)  #9
+
+
+
+
+
+# Total
+
+# 5 Minutos
+
+VARselect(R_ParUSA5)   #8
+
+# 10 Minutos
+
+VARselect(R_ParUSA10)  #10
+
+# 15 Minutos
+
+VARselect(R_ParUSA15)  #10
+
+
+
+
+
+
+###################Testes de Cointegração
+
+
+############# Par Brasil
+
+######## Pré-Covid
+
+#### 5 Minutos
+
+VECM_BR5Pre1<-ca.jo(ParBR5Pre, type="trace", ecdet = "const", K=3)
+VECM_BR5Pre2<-ca.jo(ParBR5Pre, type="eigen", ecdet = "const", K=3)
+
+
+#### 10 Minutos
+
+VECM_BR10Pre1<-ca.jo(ParBR10Pre, type="trace", ecdet = "const", K=6)
+VECM_BR10Pre2<-ca.jo(ParBR10Pre, type="eigen", ecdet = "const", K=6)
+
+#### 15 Minutos
+
+VECM_BR15Pre1<-ca.jo(ParBR15Pre, type="trace", ecdet = "const", K=4)
+VECM_BR15Pre2<-ca.jo(ParBR15Pre, type="eigen", ecdet = "const", K=4)
+
+
+######## Pós-Covid
+
+#### 5 Minutos
+
+VECM_BR5Covid1<-ca.jo(ParBR5Covid, type="trace", ecdet = "const", K=2)
+VECM_BR5Covid2<-ca.jo(ParBR5Covid, type="eigen", ecdet = "const", K=2)
+
+
+#### 10 Minutos
+
+VECM_BR10Covid1<-ca.jo(ParBR10Covid, type="trace", ecdet = "const", K=6)
+VECM_BR10Covid2<-ca.jo(ParBR10Covid, type="eigen", ecdet = "const", K=6)
+
+#### 15 Minutos
+
+VECM_BR15Covid1<-ca.jo(ParBR15Covid, type="trace", ecdet = "const", K=8)
+VECM_BR15Covid2<-ca.jo(ParBR15Covid, type="eigen", ecdet = "const", K=8)
+
+
+
+
+######## Total
+
+#### 5 Minutos
+
+VECM_BR51<-ca.jo(ParBR5, type="trace", ecdet = "const", K=3)
+VECM_BR52<-ca.jo(ParBR5, type="eigen", ecdet = "const", K=3)
+
+
+#### 10 Minutos
+
+VECM_BR101<-ca.jo(ParBR10, type="trace", ecdet = "const", K=7)
+VECM_BR102<-ca.jo(ParBR10, type="eigen", ecdet = "const", K=7)
+
+#### 15 Minutos
+
+VECM_BR151<-ca.jo(ParBR15, type="trace", ecdet = "const", K=8)
+VECM_BR152<-ca.jo(ParBR15, type="eigen", ecdet = "const", K=8)
+
+
+
+
+
+
+############# Par USA
+
+######## Pré-Covid
+
+#### 5 Minutos
+
+VECM_USA5Pre1<-ca.jo(ParUSA5Pre, type="trace", ecdet = "const", K=5)
+VECM_USA5Pre2<-ca.jo(ParUSA5Pre, type="eigen", ecdet = "const", K=5)
+
+
+#### 10 Minutos
+
+VECM_USA10Pre1<-ca.jo(ParUSA10Pre, type="trace", ecdet = "const", K=4)
+VECM_USA10Pre2<-ca.jo(ParUSA10Pre, type="eigen", ecdet = "const", K=4)
+
+#### 15 Minutos
+
+VECM_USA15Pre1<-ca.jo(ParUSA15Pre, type="trace", ecdet = "const", K=5)
+VECM_USA15Pre2<-ca.jo(ParUSA15Pre, type="eigen", ecdet = "const", K=5)
+
+
+######## Pós-Covid
+
+#### 5 Minutos
+
+VECM_USA5Covid1<-ca.jo(ParUSA5Covid, type="trace", ecdet = "const", K=3)
+VECM_USA5Covid2<-ca.jo(ParUSA5Covid, type="eigen", ecdet = "const", K=3)
+
+
+#### 10 Minutos
+
+VECM_USA10Covid1<-ca.jo(ParUSA10Covid, type="trace", ecdet = "const", K=7)
+VECM_USA10Covid2<-ca.jo(ParUSA10Covid, type="eigen", ecdet = "const", K=7)
+
+#### 15 Minutos
+
+VECM_USA15Covid1<-ca.jo(ParUSA15Covid, type="trace", ecdet = "const", K=9)
+VECM_USA15Covid2<-ca.jo(ParUSA15Covid, type="eigen", ecdet = "const", K=9)
+
+
+
+
+######## Total
+
+#### 5 Minutos
+
+VECM_USA51<-ca.jo(ParUSA5, type="trace", ecdet = "const", K=8)
+VECM_USA52<-ca.jo(ParUSA5, type="eigen", ecdet = "const", K=8)
+
+
+#### 10 Minutos
+
+VECM_USA101<-ca.jo(ParUSA10, type="trace", ecdet = "const", K=10)
+VECM_USA102<-ca.jo(ParUSA10, type="eigen", ecdet = "const", K=10)
+
+#### 15 Minutos
+
+VECM_USA151<-ca.jo(ParUSA15, type="trace", ecdet = "const", K=10)
+VECM_USA152<-ca.jo(ParUSA15, type="eigen", ecdet = "const", K=10)
+
+
+
+
+
+
+
+
+
+##################### Interpretando Resultados
+
+
+############# Par Brasil
+
+
+######### Pré-Covid
+
+
+##### 5 Minutos
+
+summary(VECM_BR5Pre1) #2
+summary(VECM_BR5Pre2) #2
+
+##### 10 Minutos
+
+summary(VECM_BR10Pre1) #2
+summary(VECM_BR10Pre2) #2
+
+##### 15 Minutos
+
+summary(VECM_BR15Pre1) # 2
+summary(VECM_BR15Pre2) # 2
+
+
+
+
+
+######### Pós-Covid
+
+
+##### 5 Minutos
+
+summary(VECM_BR5Covid1) #2
+summary(VECM_BR5Covid2) #2
+
+##### 10 Minutos
+
+summary(VECM_BR10Covid1) #2
+summary(VECM_BR10Covid2) #2
+
+##### 15 Minutos
+
+summary(VECM_BR15Covid1) #2
+summary(VECM_BR15Covid2) #2
+
+
+
+
+######### Total
+
+
+##### 5 Minutos
+
+summary(VECM_BR51) #2
+summary(VECM_BR52) #2
+
+##### 10 Minutos
+
+summary(VECM_BR101) #2
+summary(VECM_BR102) #2
+
+##### 15 Minutos
+
+summary(VECM_BR151) #2
+summary(VECM_BR152) #2
+
+
+
+
+
+
+
+
+
+
+
+############# Par USA
+
+
+######### Pré-Covid
+
+
+##### 5 Minutos
+
+summary(VECM_USA5Pre1) #2
+summary(VECM_USA5Pre2) #2
+
+##### 10 Minutos
+
+summary(VECM_USA10Pre1) #2
+summary(VECM_USA10Pre2) #2
+
+##### 15 Minutos
+
+summary(VECM_USA15Pre1) #2
+summary(VECM_USA15Pre2) #2
+
+
+
+
+
+######### Pós-Covid
+
+
+##### 5 Minutos
+
+summary(VECM_USA5Covid1) #2
+summary(VECM_USA5Covid2) #2
+
+##### 10 Minutos
+
+summary(VECM_USA10Covid1) #2
+summary(VECM_USA10Covid2) #2
+
+##### 15 Minutos
+
+summary(VECM_USA15Covid1) #2
+summary(VECM_USA15Covid2) #2
+
+
+
+######### Total
+
+
+##### 5 Minutos
+
+summary(VECM_USA51) #2
+summary(VECM_USA52) #2
+
+##### 10 Minutos
+
+summary(VECM_USA101) #2
+summary(VECM_USA102) #2
+
+##### 15 Minutos
+
+summary(VECM_USA151) #2
+summary(VECM_USA152) #2
+
+
+
+
+
+#################################Modelagem VECM
+
+
+############# Par Brasil
+
+
+
+####### Pré-Covid (p)
+
+
+#### 5 Minutos (5)
+
+
+### Ordens (n°)
+
+##  Ordem 1 - Ibov, Ewz, Ca
+
+x1p5<-ParBR5Pre
+
+##  Ordem 2 - Ibov, Ca, Ewz
+
+x2p5<-cbind(ParBR5Pre$Ibov, ParBR5Pre$Ca, ParBR5Pre$Ewz )
+
+##  Ordem 3 - Ewz, Ibov, Ca
+
+x3p5<- cbind(ParBR5Pre$Ewz, ParBR5Pre$Ibov, ParBR5Pre$Ca )
+
+##  Ordem 4 - Ewz, Ca, Ibov
+
+x4p5<- cbind(ParBR5Pre$Ewz, ParBR5Pre$Ca, ParBR5Pre$Ibov )
+
+##  Ordem 5 -  Ca, Ibov, Ewz
+
+x5p5<- cbind( ParBR5Pre$Ca, ParBR5Pre$Ibov, ParBR5Pre$Ewz )
+
+##  Ordem 6 -  Ca, Ewz, Ibov
+
+x6p5<- cbind( ParBR5Pre$Ca, ParBR5Pre$Ewz, ParBR5Pre$Ibov )
+
+
+
+#### 10 Minutos
+
+
+### Ordens
+
+##  Ordem 1 - Ibov, Ewz, Ca
+
+x1p10<-ParBR10Pre
+
+##  Ordem 2 - Ibov, Ca, Ewz
+
+x2p10<-cbind(ParBR10Pre$Ibov, ParBR10Pre$Ca, ParBR10Pre$Ewz )
+
+##  Ordem 3 - Ewz, Ibov, Ca
+
+x3p10<- cbind(ParBR10Pre$Ewz, ParBR10Pre$Ibov, ParBR10Pre$Ca )
+
+##  Ordem 4 - Ewz, Ca, Ibov
+
+x4p10<- cbind(ParBR10Pre$Ewz, ParBR10Pre$Ca, ParBR10Pre$Ibov )
+
+##  Ordem 5 -  Ca, Ibov, Ewz
+
+x5p10<- cbind( ParBR10Pre$Ca, ParBR10Pre$Ibov, ParBR10Pre$Ewz )
+
+##  Ordem 6 -  Ca, Ewz, Ibov
+
+x6p10<- cbind( ParBR10Pre$Ca, ParBR10Pre$Ewz, ParBR10Pre$Ibov )
+
+
+#### 15 Minutos
+
+
+### Ordens
+
+##  Ordem 1 - Ibov, Ewz, Ca
+
+x1p15<-ParBR15Pre
+
+##  Ordem 2 - Ibov, Ca, Ewz
+
+x2p15<-cbind(ParBR15Pre$Ibov, ParBR15Pre$Ca, ParBR15Pre$Ewz )
+
+##  Ordem 3 - Ewz, Ibov, Ca
+
+x3p15<- cbind(ParBR15Pre$Ewz, ParBR15Pre$Ibov, ParBR15Pre$Ca )
+
+##  Ordem 4 - Ewz, Ca, Ibov
+
+x4p15<- cbind(ParBR15Pre$Ewz, ParBR15Pre$Ca, ParBR15Pre$Ibov )
+
+##  Ordem 5 -  Ca, Ibov, Ewz
+
+x5p15<- cbind( ParBR15Pre$Ca, ParBR15Pre$Ibov, ParBR15Pre$Ewz )
+
+##  Ordem 6 -  Ca, Ewz, Ibov
+
+x6p15<- cbind( ParBR15Pre$Ca, ParBR15Pre$Ewz, ParBR15Pre$Ibov )
+
+
+
+####### Pós-Covid (c)
+
+
+#### 5 Minutos (5)
+
+
+### Ordens (n°)
+
+##  Ordem 1 - Ibov, Ewz, Ca
+
+x1c5<-ParBR5Covid
+
+##  Ordem 2 - Ibov, Ca, Ewz
+
+x2c5<-cbind(ParBR5Covid$Ibov, ParBR5Covid$Ca, ParBR5Covid$Ewz )
+
+##  Ordem 3 - Ewz, Ibov, Ca
+
+x3c5<- cbind(ParBR5Covid$Ewz, ParBR5Covid$Ibov, ParBR5Covid$Ca )
+
+##  Ordem 4 - Ewz, Ca, Ibov
+
+x4c5<- cbind(ParBR5Covid$Ewz, ParBR5Covid$Ca, ParBR5Covid$Ibov )
+
+##  Ordem 5 -  Ca, Ibov, Ewz
+
+x5c5<- cbind( ParBR5Covid$Ca, ParBR5Covid$Ibov, ParBR5Covid$Ewz )
+
+##  Ordem 6 -  Ca, Ewz, Ibov
+
+x6c5<- cbind( ParBR5Covid$Ca, ParBR5Covid$Ewz, ParBR5Covid$Ibov )
+
+
+
+
+#### 10 Minutos
+
+
+### Ordens
+
+##  Ordem 1 - Ibov, Ewz, Ca
+
+x1c10<-ParBR10Covid
+
+##  Ordem 2 - Ibov, Ca, Ewz
+
+x2c10<-cbind(ParBR10Covid$Ibov, ParBR10Covid$Ca, ParBR10Covid$Ewz )
+
+##  Ordem 3 - Ewz, Ibov, Ca
+
+x3c10<- cbind(ParBR10Covid$Ewz, ParBR10Covid$Ibov, ParBR10Covid$Ca )
+
+##  Ordem 4 - Ewz, Ca, Ibov
+
+x4c10<- cbind(ParBR10Covid$Ewz, ParBR10Covid$Ca, ParBR10Covid$Ibov )
+
+##  Ordem 5 -  Ca, Ibov, Ewz
+
+x5c10<- cbind( ParBR10Covid$Ca, ParBR10Covid$Ibov, ParBR10Covid$Ewz )
+
+##  Ordem 6 -  Ca, Ewz, Ibov
+
+x6c10<- cbind( ParBR10Covid$Ca, ParBR10Covid$Ewz, ParBR10Covid$Ibov )
+
+
+#### 15 Minutos
+
+
+### Ordens
+
+##  Ordem 1 - Ibov, Ewz, Ca
+
+x1c15<-ParBR15Pre
+
+##  Ordem 2 - Ibov, Ca, Ewz
+
+x2c15<-cbind(ParBR15Covid$Ibov, ParBR15Covid$Ca, ParBR15Covid$Ewz )
+
+##  Ordem 3 - Ewz, Ibov, Ca
+
+x3c15<- cbind(ParBR15Covid$Ewz, ParBR15Covid$Ibov, ParBR15Covid$Ca )
+
+##  Ordem 4 - Ewz, Ca, Ibov
+
+x4c15<- cbind(ParBR15Covid$Ewz, ParBR15Covid$Ca, ParBR15Covid$Ibov )
+
+##  Ordem 5 -  Ca, Ibov, Ewz
+
+x5c15<- cbind( ParBR15Covid$Ca, ParBR15Covid$Ibov, ParBR15Covid$Ewz )
+
+##  Ordem 6 -  Ca, Ewz, Ibov
+
+x6c15<- cbind( ParBR15Covid$Ca, ParBR15Covid$Ewz, ParBR15Covid$Ibov )
+
+
+#Total
+
+#5
+x15<- cbind( ParBR5$Ibov, ParBR5$Ewz, ParBR5$Ca )
+x25<- cbind( ParBR5$Ewz, ParBR5$Ibov, ParBR5$Ca )
+
+
+
+#10
+
+x110<- cbind( ParBR10$Ibov, ParBR10$Ewz, ParBR10$Ca )
+x210<- cbind( ParBR10$Ewz, ParBR10$Ibov, ParBR10$Ca )
+
+
+
+
+#15
+x115<- cbind( ParBR15$Ibov, ParBR15$Ewz, ParBR15$Ca )
+x215<- cbind( ParBR15$Ewz, ParBR15$Ibov, ParBR15$Ca )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+############# Par USA
+
+
+
+####### Pré-Covid (p)
+
+
+#### 5 Minutos (5)
+
+
+### Ordens (n°)
+
+##  Ordem 1 - Sp, Spxi, Ca
+
+y1p5<-ParUSA5Pre
+
+##  Ordem 2 - Sp, Ca, Spxi
+
+#y2p5<-cbind(ParUSA5Pre$Sp, ParUSA5Pre$Ca, ParUSA5Pre$Spxi )
+
+##  Ordem 3 - Spxi, Sp, Ca
+
+y3p5<- cbind(ParUSA5Pre$Spxi, ParUSA5Pre$Sp, ParUSA5Pre$Ca )
+
+##  Ordem 4 - Spxi, Ca, Sp
+
+#y4p5<- cbind(ParUSA5Pre$Spxi, ParUSA5Pre$Ca, ParUSA5Pre$Sp )
+
+##  Ordem 5 -  Ca, Sp, Spxi
+
+#y5p5<- cbind( ParUSA5Pre$Ca, ParUSA5Pre$Sp, ParUSA5Pre$Spxi )
+
+##  Ordem 6 -  Ca, Spxi, Sp
+
+#y6p5<- cbind( ParUSA5Pre$Ca, ParUSA5Pre$Spxi, ParUSA5Pre$Sp )
+
+
+
+#### 10 Minutos
+
+
+### Ordens
+
+##  Ordem 1 - Sp, Spxi, Ca
+
+y1p10<-ParUSA10Pre
+
+##  Ordem 2 - Sp, Ca, Spxi
+
+#y2p10<-cbind(ParUSA10Pre$Sp, ParUSA10Pre$Ca, ParUSA10Pre$Spxi )
+
+##  Ordem 3 - Spxi, Sp, Ca
+
+y3p10<- cbind(ParUSA10Pre$Spxi, ParUSA10Pre$Sp, ParUSA10Pre$Ca )
+
+##  Ordem 4 - Spxi, Ca, Sp
+
+#y4p10<- cbind(ParUSA10Pre$Spxi, ParUSA10Pre$Ca, ParUSA10Pre$Sp )
+
+##  Ordem 5 -  Ca, Sp, Spxi
+
+#y5p10<- cbind( ParUSA10Pre$Ca, ParUSA10Pre$Sp, ParUSA10Pre$Spxi )
+
+##  Ordem 6 -  Ca, Spxi, Sp
+
+#y6p10<- cbind( ParUSA10Pre$Ca, ParUSA10Pre$Spxi, ParUSA10Pre$Sp )
+
+
+#### 15 Minutos
+
+
+### Ordens
+
+##  Ordem 1 - Sp, Spxi, Ca
+
+y1p15<-ParUSA15Pre
+
+##  Ordem 2 - Sp, Ca, Spxi
+
+#y2p15<-cbind(ParUSA15Pre$Sp, ParUSA15Pre$Ca, ParUSA15Pre$Spxi )
+
+##  Ordem 3 - Spxi, Sp, Ca
+
+y3p15<- cbind(ParUSA15Pre$Spxi, ParUSA15Pre$Sp, ParUSA15Pre$Ca )
+
+##  Ordem 4 - Spxi, Ca, Sp
+
+#y4p15<- cbind(ParUSA15Pre$Spxi, ParUSA15Pre$Ca, ParUSA15Pre$Sp )
+
+##  Ordem 5 -  Ca, Sp, Spxi
+
+#y5p15<- cbind( ParUSA15Pre$Ca, ParUSA15Pre$Sp, ParUSA15Pre$Spxi )
+
+##  Ordem 6 -  Ca, Spxi, Sp
+
+#y6p15<- cbind( ParUSA15Pre$Ca, ParUSA15Pre$Spxi, ParUSA15Pre$Sp )
+
+
+
+
+####### Pós-Covid (c)
+
+
+#### 5 Minutos (5)
+
+
+### Ordens (n°)
+
+##  Ordem 1 - Sp, Spxi, Ca
+
+y1c5<-ParUSA5Covid
+
+##  Ordem 2 - Sp, Ca, Spxi
+
+#y2c5<-cbind(ParUSA5Covid$Sp, ParUSA5Covid$Ca, ParUSA5Covid$Spxi )
+
+##  Ordem 3 - Spxi, Sp, Ca
+
+y3c5<- cbind(ParUSA5Covid$Spxi, ParUSA5Covid$Sp, ParUSA5Covid$Ca )
+
+##  Ordem 4 - Spxi, Ca, Sp
+
+#y4c5<- cbind(ParUSA5Covid$Spxi, ParUSA5Covid$Ca, ParUSA5Covid$Sp )
+
+##  Ordem 5 -  Ca, Sp, Spxi
+
+#y5c5<- cbind( ParUSA5Covid$Ca, ParUSA5Covid$Sp, ParUSA5Covid$Spxi )
+
+##  Ordem 6 -  Ca, Spxi, Sp
+
+#y6c5<- cbind( ParUSA5Covid$Ca, ParUSA5Covid$Spxi, ParUSA5Covid$Sp )
+
+
+
+#### 10 Minutos
+
+
+### Ordens
+
+##  Ordem 1 - Sp, Spxi, Ca
+
+y1c10<-ParUSA10Covid
+
+##  Ordem 2 - Sp, Ca, Spxi
+
+#y2c10<-cbind(ParUSA10Covid$Sp, ParUSA10Covid$Ca, ParUSA10Covid$Spxi )
+
+##  Ordem 3 - Spxi, Sp, Ca
+
+y3c10<- cbind(ParUSA10Covid$Spxi, ParUSA10Covid$Sp, ParUSA10Covid$Ca )
+
+##  Ordem 4 - Spxi, Ca, Sp
+
+#y4c10<- cbind(ParUSA10Covid$Spxi, ParUSA10Covid$Ca, ParUSA10Covid$Sp )
+
+##  Ordem 5 -  Ca, Sp, Spxi
+
+#y5c10<- cbind( ParUSA10Covid$Ca, ParUSA10Covid$Sp, ParUSA10Covid$Spxi )
+
+##  Ordem 6 -  Ca, Spxi, Sp
+
+#y6c10<- cbind( ParUSA10Covid$Ca, ParUSA10Covid$Spxi, ParUSA10Covid$Sp )
+
+
+#### 15 Minutos
+
+
+### Ordens
+
+##  Ordem 1 - Sp, Spxi, Ca
+
+y1c15<-ParUSA15Covid
+
+##  Ordem 2 - Sp, Ca, Spxi
+
+#y2c15<-cbind(ParUSA15Covid$Sp, ParUSA15Covid$Ca, ParUSA15Covid$Spxi )
+
+##  Ordem 3 - Spxi, Sp, Ca
+
+y3c15<- cbind(ParUSA15Covid$Spxi, ParUSA15Covid$Sp, ParUSA15Covid$Ca )
+
+##  Ordem 4 - Spxi, Ca, Sp
+
+#y4c15<- cbind(ParUSA15Covid$Spxi, ParUSA15Covid$Ca, ParUSA15Covid$Sp )
+
+##  Ordem 5 -  Ca, Sp, Spxi
+
+#y5c15<- cbind( ParUSA15Covid$Ca, ParUSA15Covid$Sp, ParUSA15Covid$Spxi )
+
+##  Ordem 6 -  Ca, Spxi, Sp
+
+#y6c15<- cbind( ParUSA15Covid$Ca, ParUSA15Covid$Spxi, ParUSA15Covid$Sp )
+
+
+
+#Total
+
+#5
+y15<- cbind( ParUSA5$Sp, ParUSA5$Spxi, ParUSA5$Ca )
+y25<- cbind( ParUSA5$Spxi, ParUSA5$Sp, ParUSA5$Ca )
+
+
+
+#10
+
+y110<- cbind( ParUSA10$Sp, ParUSA10$Spxi, ParUSA10$Ca )
+y210<- cbind( ParUSA10$Spxi, ParUSA10$Sp, ParUSA10$Ca )
+
+
+
+
+#15
+y115<- cbind( ParUSA15$Sp, ParUSA15$Spxi, ParUSA15$Ca )
+y215<- cbind( ParUSA15$Spxi, ParUSA15$Sp, ParUSA15$Ca )
+
+
+
+
+####Component share 
+
+#For static
+cs<-function(Model){
+  cf<-matrix(coef(Model)[,1], ncol = 1) #Extrai os alphas
+  Im<-matrix(c(1,1,1), ncol = 1)
+  p1<- Im - cf %*% solve(t(cf)%*%cf   ) %*% t(cf) %*% Im
+  p2<- t(Im)%*%Im - t(Im)%*%cf %*% solve( t(cf)%*%cf )%*%t(cf)%*%Im
+  out<-t(p1/p2[1,1])
+  out
+ 
+}
+
+#For dynamic
+
+csDin1<-function(B){
+  
+  A<-matrix(B,ncol=3)
+  
+  a1<-A[,1]
+  a2<-A[,2]
+  a3<-A[,3]
+  
+  cf<-matrix(c(a1,a2,a3), ncol = 1)
+  Im<-matrix(c(1,1,1), ncol = 1)
+  
+  p1<- Im - cf %*% solve(t(cf)%*%cf   ) %*% t(cf) %*% Im
+  p2<- t(Im)%*%Im - t(Im)%*%cf %*% solve( t(cf)%*%cf )%*%t(cf)%*%Im
+  out<-t(p1/p2[1,1])
+  out[,1]
+  
+}
+
+csDin2<-function(B){
+  
+  A<-matrix(B,ncol=3)
+  
+  a1<-A[,1]
+  a2<-A[,2]
+  a3<-A[,3]
+  
+  cf<-matrix(c(a1,a2,a3), ncol = 1)
+  Im<-matrix(c(1,1,1), ncol = 1)
+  
+  p1<- Im - cf %*% solve(t(cf)%*%cf   ) %*% t(cf) %*% Im
+  p2<- t(Im)%*%Im - t(Im)%*%cf %*% solve( t(cf)%*%cf )%*%t(cf)%*%Im
+  out<-t(p1/p2[1,1])
+  out[,2]
+  
+}
+
+csDin3<-function(B){
+  
+  A<-matrix(B,ncol=3)
+  
+  a1<-A[,1]
+  a2<-A[,2]
+  a3<-A[,3]
+  
+  cf<-matrix(c(a1,a2,a3), ncol = 1)
+  Im<-matrix(c(1,1,1), ncol = 1)
+  
+  p1<- Im - cf %*% solve(t(cf)%*%cf   ) %*% t(cf) %*% Im
+  p2<- t(Im)%*%Im - t(Im)%*%cf %*% solve( t(cf)%*%cf )%*%t(cf)%*%Im
+  out<-t(p1/p2[1,1])
+  out[,3]
+  
+}
+
+
+########################### regression
+
+
+############## Par Brasil
+
+########## Pré-Covid
+
+####### 5 Minutos
+
+options(digits=10)
+
+# Ordem 1 Ibov EWZ Ca
+M_BR_P_5_1<-VECM(10000*log(x1p5), 3, r=1, estim="ML")
+
+coef(M_BR_P_5_1)[,1]
+cs(M_BR_P_5_1)
+
+plot(irf(M_BR_P_5_1))
+
+# Ordem 2 Ibov Ca EWZ
+#M_BR_P_5_2<-VECM(x2p5, 3, r=1, estim="ML")
+
+# Ordem 3 EWZ IBOV CA
+M_BR_P_5_3<-VECM(x3p5, 3, r=1, estim="ML" )
+
+# Ordem 4
+#M_BR_P_5_4<-VECM(x4p5, 3, r=1, estim="ML")
+
+# Ordem 5
+#M_BR_P_5_5<-VECM(x5p5, 3, r=1, estim="ML")
+
+# Ordem 6
+#M_BR_P_5_6<-VECM(x6p5, 3, r=1, estim="ML")
+
+
+####### 10 Minutos
+
+# Ordem 1 Ibov EWZ CA
+M_BR_P_10_1<-VECM(10000*log(x1p10), 6, r=1, estim="ML")
+
+cs(M_BR_P_10_1)
+# Ordem 2
+#M_BR_P_10_2<-VECM(x2p10, 6, r=1, estim="ML")
+
+# Ordem 3 EWZ Ibov CA
+M_BR_P_10_3<-VECM(x3p10, 6, r=1, estim="ML")
+
+# Ordem 4
+#M_BR_P_10_4<-VECM(x4p10, 6, r=1, estim="ML")
+
+# Ordem 5
+#M_BR_P_10_5<-VECM(x5p10, 6, r=1, estim="ML")
+
+# Ordem 6
+#M_BR_P_10_6<-VECM(x6p10, 6, r=1, estim="ML")
+
+
+
+####### 15 Minutos
+
+# Ordem 1 Ibov EWZ CA
+M_BR_P_15_1<-VECM(10000*log(x1p15), 4, r=1, estim="ML")
+
+cs(M_BR_P_15_1)
+
+# Ordem 2
+#M_BR_P_15_2<-VECM(x2p15, 4, r=1, estim="ML")
+
+# Ordem 3 EWZ Ibov CA
+M_BR_P_15_3<-VECM(x3p15, 4, r=1, estim="ML")
+
+# Ordem 4
+#M_BR_P_15_4<-VECM(x4p15, 4, r=1, estim="ML")
+
+# Ordem 5
+#M_BR_P_15_5<-VECM(x5p15, 4, r=1, estim="ML")
+
+# Ordem 6
+#M_BR_P_15_6<-VECM(x6p15, 4, r=1, estim="ML")
+
+
+
+########## Pós-Covid
+
+####### 5 Minutos
+
+# Ordem 1 Ibov EWZ CA
+M_BR_C_5_1<-VECM(10000*log(x1c5), 2, r=1, estim="ML")
+
+cs(M_BR_C_5_1)
+
+# Ordem 2
+#M_BR_C_5_2<-VECM(x2c5, 2, r=1, estim="ML")
+
+# Ordem 3 EWZ Ibov
+M_BR_C_5_3<-VECM(x3c5, 2, r=1, estim="ML")
+
+# Ordem 4
+#M_BR_C_5_4<-VECM(x4c5, 2, r=1, estim="ML")
+
+# Ordem 5
+#M_BR_C_5_5<-VECM(x5c5, 2, r=1, estim="ML")
+
+# Ordem 6
+#M_BR_C_5_6<-VECM(x6c5, 2, r=1, estim="ML")
+
+
+####### 10 Minutos
+
+# Ordem 1 Ibov EWZ CA
+M_BR_C_10_1<-VECM(10000*log(x1c10), 6, r=1, estim="ML")
+cs(M_BR_C_10_1)
+# Ordem 2
+#M_BR_C_10_2<-VECM(x2c10, 6, r=1, estim="ML")
+
+# Ordem 3 Ewz Ibov
+M_BR_C_10_3<-VECM(x3c10, 6, r=1, estim="ML")
+
+# Ordem 4
+#M_BR_C_10_4<-VECM(x4c10, 6, r=1, estim="ML")
+
+# Ordem 5
+#M_BR_C_10_5<-VECM(x5c10, 6, r=1, estim="ML")
+
+# Ordem 6
+#M_BR_C_10_6<-VECM(x6c10, 6, r=1, estim="ML")
+
+
+
+####### 15 Minutos
+
+# Ordem 1 Ibov EWZ CA
+M_BR_C_15_1<-VECM(10000*log(x1c15), 8, r=1, estim="ML")
+cs(M_BR_C_15_1)
+# Ordem 2
+#M_BR_C_15_2<-VECM(x2c15, 8, r=1, estim="ML")
+
+# Ordem 3 EWZ Ibov CA
+M_BR_C_15_3<-VECM(x3c15, 8, r=1, estim="ML")
+
+# Ordem 4
+#M_BR_C_15_4<-VECM(x4c15, 8, r=1, estim="ML")
+
+# Ordem 5
+#M_BR_C_15_5<-VECM(x5c15, 8, r=1, estim="ML")
+
+# Ordem 6
+#M_BR_C_15_6<-VECM(x6c15, 8, r=1, estim="ML")
+
+
+
+#Total
+
+#5
+M_BR_5_1<-VECM(10000*log(x15), 3, r=1, estim="ML")
+M_BR_5_2<-VECM(x25, 3, r=1, estim="ML")
+
+cs(M_BR_5_1)
+
+#10
+M_BR_10_1<-VECM(10000*log(x110), 7, r=1, estim="ML")
+M_BR_10_2<-VECM(x210, 7, r=1, estim="ML")
+
+cs(M_BR_10_1)
+#15
+M_BR_15_1<-VECM(10000*log(x115), 8, r=1, estim="ML")
+M_BR_15_2<-VECM(x215, 8, r=1, estim="ML")
+
+cs(M_BR_15_1)
+
+
+
+
+
+
+
+
+
+############## Par USA
+
+########## Pré-Covid
+
+####### 5 Minutos
+
+# Ordem 1
+M_USA_P_5_1<-VECM(10000*log(y1p5), 5, r=1, estim="ML")
+cs(M_USA_P_5_1)
+# Ordem 2
+#M_USA_P_5_2<-VECM(y2p5, 5, r=1, estim="ML")
+
+# Ordem 
+M_USA_P_5_3<-VECM(y3p5, 5, r=1, estim="ML")
+
+# Ordem 4
+#M_USA_P_5_4<-VECM(y4p5, 5, r=1, estim="ML")
+
+# Ordem 5
+#M_USA_P_5_5<-VECM(y5p5, 5, r=1, estim="ML")
+
+# Ordem 6
+#M_USA_P_5_6<-VECM(y6p5, 5, r=1, estim="ML")
+
+
+####### 10 Minutos
+
+# Ordem 1
+M_USA_P_10_1<-VECM(10000*log(y1p10), 4, r=1, estim="ML")
+cs(M_USA_P_10_1)
+# Ordem 2
+#M_USA_P_10_2<-VECM(y2p10, 4, r=1, estim="ML")
+
+# Ordem 3
+M_USA_P_10_3<-VECM(y3p10, 4, r=1, estim="ML")
+
+# Ordem 4
+#M_USA_P_10_4<-VECM(y4p10, 4, r=1, estim="ML")
+
+# Ordem 5
+#M_USA_P_10_5<-VECM(y5p10, 4, r=1, estim="ML")
+
+# Ordem 6
+#M_USA_P_10_6<-VECM(y6p10, 4, r=1, estim="ML")
+
+
+
+####### 15 Minutos
+
+# Ordem 1
+M_USA_P_15_1<-VECM(10000*log(y1p15), 5, r=1, estim="ML")
+cs(M_USA_P_15_1)
+# Ordem 2
+#M_USA_P_15_2<-VECM(y2p15, 5, r=1, estim="ML")
+
+# Ordem 3
+M_USA_P_15_3<-VECM(y3p15, 5, r=1, estim="ML")
+
+# Ordem 4
+#M_USA_P_15_4<-VECM(y4p15, 5, r=1, estim="ML")
+
+# Ordem 5
+#M_USA_P_15_5<-VECM(y5p15, 5, r=1, estim="ML")
+
+# Ordem 6
+#M_USA_P_15_6<-VECM(y6p15, 5, r=1, estim="ML")
+
+
+
+########## Pós-Covid
+
+####### 5 Minutos
+
+# Ordem 1
+M_USA_C_5_1<-VECM(10000*log(y1c5), 3, r=1, estim="ML")
+cs(M_USA_C_5_1)
+# Ordem 2
+#M_USA_C_5_2<-VECM(y2c5, 3, r=1, estim="ML")
+
+# Ordem 3
+M_USA_C_5_3<-VECM(y3c5, 3, r=1, estim="ML")
+
+# Ordem 4
+#M_USA_C_5_4<-VECM(y4c5, 3, r=1, estim="ML")
+
+# Ordem 5
+#M_USA_C_5_5<-VECM(y5c5, 3, r=1, estim="ML")
+
+# Ordem 6
+#M_USA_C_5_6<-VECM(y6c5, 3, r=1, estim="ML")
+
+
+####### 10 Minutos
+
+# Ordem 1
+M_USA_C_10_1<-VECM(10000*log(y1c10), 7, r=1, estim="ML")
+cs(M_USA_C_10_1)
+# Ordem 2
+#M_USA_C_10_2<-VECM(y2c10, 7, r=1, estim="ML")
+
+# Ordem 3
+M_USA_C_10_3<-VECM(y3c10, 7, r=1, estim="ML")
+
+# Ordem 4
+#M_USA_C_10_4<-VECM(y4c10, 7, r=1, estim="ML")
+
+# Ordem 5
+#M_USA_C_10_5<-VECM(y5c10, 7, r=1, estim="ML")
+
+# Ordem 6
+#M_USA_C_10_6<-VECM(y6c10, 7, r=1, estim="ML")
+
+
+
+####### 15 Minutos
+
+# Ordem 1
+M_USA_C_15_1<-VECM(10000*log(y1c15), 9, r=1, estim="ML")
+
+cs(M_USA_C_15_1)
+# Ordem 2
+#M_USA_C_15_2<-VECM(y2c15, 9, r=1, estim="ML")
+
+# Ordem 3
+M_USA_C_15_3<-VECM(y3c15, 9, r=1, estim="ML")
+
+# Ordem 4
+#M_USA_C_15_4<-VECM(y4c15, 9, r=1, estim="ML")
+
+# Ordem 5
+#M_USA_C_15_5<-VECM(y5c15, 9, r=1, estim="ML")
+
+# Ordem 6
+#M_USA_C_15_6<-VECM(y6c15, 9, r=1, estim="ML")
+
+
+
+
+#Total
+
+#5
+M_USA_5_1<-VECM(10000*log(y15), 8, r=1, estim="ML")
+M_USA_5_2<-VECM(y25, 8, r=1, estim="ML")
+
+cs(M_USA_5_1)
+
+#10
+M_USA_10_1<-VECM(10000*log(y110), 10, r=1, estim="ML")
+M_USA_10_2<-VECM(y210, 10, r=1, estim="ML")
+
+cs(M_USA_10_1)
+#15
+M_USA_15_1<-VECM(10000*log(y115), 10, r=1, estim="ML")
+M_USA_15_2<-VECM(y215, 10, r=1, estim="ML")
+
+cs(M_USA_15_1)
+
+
+# Kalman Filter
+
+
+
+library(quantmod)
+
+#BR Pre 5 min 
+
+
+
+KfBR_5<-VECM(10000*log(x1p5), 3, r=1, estim="ML")
+
+
+
+summary((KfBR_5))
+
+
+
+
+p1<-10000*log(x1p5$Ibov)
+p2<-10000*log(x1p5$Ewz)
+p3<-10000*log(x1p5$Ca)
+
+
+ECM<-p1-1.112974895*p2-1.151419217*p3
+
+dp1<-diff(p1);colnames(dp1)<-"Ibov"
+dp2<-diff(p2);colnames(dp2)<-"EWZ1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3), EMCt)
+
+colnames(ob)<-c("Ibov","Ibov1","Ibov2","Ibov3",
+                "EWZ1","EWZ2","EWZ3",
+                "C1","C2","C3","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$Ibov))
+
+Ar<-rbind(cons, Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,
+          Ob$EWZ1,Ob$EWZ2,Ob$EWZ3,
+          Ob$C1, Ob$C2, Ob$C3, Ob$EMCt1)  #11
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,11,T)) #11
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(11) # mmatriz da relação entre os alphas
+Rt <- diag(11)   #matriz de relação dos erros
+Qt <- matrix(0, 11,11) #Matriz de covariancias dos alphas
+Qt[11,11]<-NA
+Qt
+
+summary(KfBR_5)
+#              constante, ibov1,ibov2, ibov3,ewz1,ewz2,ewz3, ca1,ca2,ca3, ECM
+
+a1 <- matrix(c(1686.1493,
+               0.0538,  -0.0104,    -0.0079, 
+               0.1035,0.0133, 0.0586,
+               -0.1420, -0.0563,  -0.0139,-0.0293 ), 11, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 11, 11) #Parte não difusa de a1
+
+P1d<-matrix(0,11,11)
+
+P1d[11,11]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$Ibov ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+# extract filtered and smoothed alpha and betta
+alpha.KFS <- ts( cbind(y.SS.KFS$a[,11], y.SS.KFS$alphahat[,11]) )[-c(1:10)]
+
+betta.KFS <- ts( cbind(y.SS.KFS$a[,2], y.SS.KFS$alphahat[,2]), start=c(1981,4), frequency=12)
+
+par(mfrow=c(2,2), mar=c(4,4,2,1))
+
+
+# plot filtered and smoothed state alpha and betta
+plot.ts(abs(y.SS.KFS$a[,11]), plot.type="single", xlab="",ylab="Alpha", col=c("blue","red"), lwd=2)
+legend("topright", c("filtered","smoothed"), col=c("blue","red"), lwd=2, cex=0.7, bty="n")
+lines(abs(y.SS.KFS$alphahat[,11]), col="red")
+      
+# plot smoothed state alpha and betta
+plot.ts(abs(y.SS.KFS$alphahat[,11]), plot.type="single", xlab="",ylab="Alpha", col="red", lwd=2)
+
+
+
+
+
+legend("topright", "smoothed", col="red", lwd=2, cex=0.7, bty="n")
+plot.ts(betta.KFS[,2], plot.type="single", xlab="",ylab="Beta", col="red", lwd=2)
+legend("topright", "smoothed", col="red", lwd=2, cex=0.7, bty="n")
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 11])
+mean(y.SS.KFS$a[, 2])
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 1])
+mean(y.SS.KFS$alphahat[, 2])
+
+
+#Alpha1 BR 5 minutos pre covid 
+
+a1BR5p<-y.SS.KFS$alphahat[,11]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+summary(KfBR_5)
+
+p1<-10000*log(x1p5$Ewz)
+p2<-10000*log(x1p5$Ibov)
+p3<-10000*log(x1p5$Ca)
+
+
+ECM<-p2-1.112974895*p1-1.151419217*p3
+
+dp1<-diff(p1);colnames(dp1)<-"EWZ"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3), EMCt)
+
+colnames(ob)<-c("EWZ","EWZ1","EWZ2","EWZ3",
+                "Ibov1","Ibov2","Ibov3",
+                "C1","C2","C3","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$EWZ))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$EWZ1,Ob$EWZ2,Ob$EWZ3,
+          Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,
+          Ob$C1, Ob$C2, Ob$C3, Ob$EMCt1)  #11
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,11,T)) #11
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(11) # mmatriz da relação entre os alphas
+Rt <- diag(11)   #matriz de relação dos erros
+Qt <- matrix(0, 11,11) #Matriz de covariancias dos alphas
+Qt[11,11]<-NA
+Qt
+
+summary(KfBR_5)
+
+#              constante, ewz1,ewz2,ewz3,ibov1,ibov2, ibov3, ca1,ca2,ca3, ECM
+
+a1 <- matrix(c(125.2620,
+               -0.0035,  -0.0160,  -0.0072, 
+               0.0052,-0.0058, 0.0032, 
+               0.0014, -0.0298,   -0.0280,-0.0022 ), 11, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 11, 11) #Parte não difusa de a1
+
+P1d<-matrix(0,11,11)
+
+P1d[11,11]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$EWZ ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+# extract filtered and smoothed alpha and betta
+alpha.KFS <- ts( cbind(y.SS.KFS$a[,11], y.SS.KFS$alphahat[,11]) )[-c(1:10)]
+
+betta.KFS <- ts( cbind(y.SS.KFS$a[,2], y.SS.KFS$alphahat[,2]), start=c(1981,4), frequency=12)
+
+par(mfrow=c(1,1))
+
+
+# plot filtered and smoothed state alpha and betta
+plot.ts(abs(y.SS.KFS$a[,11]), plot.type="single", xlab="",ylab="Alpha", col=c("blue","red"), lwd=2)
+legend("topright", c("filtered","smoothed"), col=c("blue","red"), lwd=2, cex=0.7, bty="n")
+
+# plot smoothed state alpha and betta
+plot.ts(abs(y.SS.KFS$alphahat[,11]), plot.type="single", xlab="",ylab="Alpha", col="red", lwd=2)
+
+
+
+
+
+legend("topright", "smoothed", col="red", lwd=2, cex=0.7, bty="n")
+plot.ts(betta.KFS[,2], plot.type="single", xlab="",ylab="Beta", col="red", lwd=2)
+legend("topright", "smoothed", col="red", lwd=2, cex=0.7, bty="n")
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 11])
+mean(y.SS.KFS$a[, 2])
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 1])
+mean(y.SS.KFS$alphahat[, 2])
+
+
+#Alpha2 BR 5 minutos pre covid 
+
+a2BR5p<-y.SS.KFS$alphahat[,11]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+summary(KfBR_5) #Cambio
+
+p1<-10000*log(x1p5$Ca)
+p2<-10000*log(x1p5$Ibov)
+p3<-10000*log(x1p5$Ewz)
+
+
+ECM<-p2-1.112974895*p3-1.151419217*p1
+
+dp1<-diff(p1);colnames(dp1)<-"C1"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"Ewz1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3), EMCt)
+
+colnames(ob)<-c("C","C1","C2","C3",
+                "Ibov1","Ibov2","Ibov3",
+                "EWZ1","EWZ2","EWZ3","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$C))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$C1, Ob$C2, Ob$C3,
+          Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,
+          Ob$EWZ1,Ob$EWZ2,Ob$EWZ3, Ob$EMCt1)  #11
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,11,T)) #11
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(11) # mmatriz da relação entre os alphas
+Rt <- diag(11)   #matriz de relação dos erros
+Qt <- matrix(0, 11,11) #Matriz de covariancias dos alphas
+Qt[11,11]<-NA
+Qt
+
+summary(KfBR_5)
+
+#              constante, ca1,ca2,ca3,ibov1,ibov2, ibov3,ewz1,ewz2,ewz3 , ECM
+
+a1 <- matrix(c(-1010.0188,
+               -0.0801, 0.0091,-0.0141,
+               -0.0172, -0.0088,0.0010,
+               -0.0020, 0.0108,0.0074,0.0175 ), 11, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 11, 11) #Parte não difusa de a1
+
+P1d<-matrix(0,11,11)
+
+P1d[11,11]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$C ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+# extract filtered and smoothed alpha and betta
+alpha.KFS <- ts( cbind(y.SS.KFS$a[,11], y.SS.KFS$alphahat[,11]) )[-c(1:10)]
+
+betta.KFS <- ts( cbind(y.SS.KFS$a[,2], y.SS.KFS$alphahat[,2]), start=c(1981,4), frequency=12)
+
+par(mfrow=c(1,1))
+
+
+# plot filtered and smoothed state alpha and betta
+plot.ts(abs(y.SS.KFS$a[,11]), plot.type="single", xlab="",ylab="Alpha", col=c("blue","red"), lwd=2)
+legend("topright", c("filtered","smoothed"), col=c("blue","red"), lwd=2, cex=0.7, bty="n")
+
+# plot smoothed state alpha and betta
+plot.ts(abs(y.SS.KFS$alphahat[,11]), plot.type="single", xlab="",ylab="Alpha", col="red", lwd=2)
+
+
+
+
+
+legend("topright", "smoothed", col="red", lwd=2, cex=0.7, bty="n")
+plot.ts(betta.KFS[,2], plot.type="single", xlab="",ylab="Beta", col="red", lwd=2)
+legend("topright", "smoothed", col="red", lwd=2, cex=0.7, bty="n")
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 11])
+mean(y.SS.KFS$a[, 2])
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 1])
+mean(y.SS.KFS$alphahat[, 2])
+
+
+#Alpha3 BR 5 minutos pre covid, cambio 
+
+a3BR5p<-y.SS.KFS$alphahat[,11]
+
+
+plot.ts(a3BR5p)
+
+
+#CP para o Ibov
+
+
+A_BR_5_P<-matrix(c(a1BR5p,a2BR5p,a3BR5p), ncol = 3)
+
+
+
+csDin1(A_BR_5_P[5,])
+
+heyho<-apply(A_BR_5_P, MARGIN = 1, FUN = csDin1)
+
+
+Ao_5_P_BR<-matrix(cbind(
+  apply(A_BR_5_P, MARGIN = 1, FUN = csDin1),
+  apply(A_BR_5_P, MARGIN = 1, FUN = csDin2),
+  apply(A_BR_5_P, MARGIN = 1, FUN = csDin3)
+),
+ncol=3)
+
+
+par(mfrow=c(3,1))
+plot(100*ts(Ao_5_P_BR[,1]), main="", xlab="Time", ylab="Ibov - 5 Minutes", col="red")
+plot(100*ts(Ao_5_P_BR[,2]), main="", xlab="Time", ylab="EWZ - 5 Minutes", col="blue")
+plot(100*ts(Ao_5_P_BR[,3]), main="", xlab="Time", ylab="Exchange rate - 5 Minutes", col="green")
+
+
+summary(100*Ao_5_P_BR[,1])
+
+
+
+
+
+#Cpibov5<-abs(a2BR5p)/(abs(a2BR5p)+abs(a1BR5p))
+
+
+#Sem as dez primeiras observações
+
+Cpibov5<-Cpibov5[-c(1:10)]
+
+
+par(mfrow=c(2,1))
+
+plot(Cpibov5)
+legend("topleft", c("Price Discovery Dynamic Contribution for the Ibovespa 5 Minutes"), col=c("black"), lwd=2, cex=0.7, bty="n")
+
+Cpewz5<-1-Cpibov5
+
+plot(Cpewz5)
+legend("topleft", c("Price Discovery Dynamic Contribution for the EWZ 5 Minutes"), col=c("black"), lwd=2, cex=0.7, bty="n")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+KfBR_10<-VECM(10000*log(x1p10), 6, r=1, estim="ML")
+
+
+summary(KfBR_10)
+
+p1<-10000*log(x1p10$Ibov)
+p2<-10000*log(x1p10$Ewz)
+p3<-10000*log(x1p10$Ca)
+
+
+ECM<-p1-1.113976232*p2-1.150438044*p3
+
+dp1<-diff(p1);colnames(dp1)<-"Ibov"
+dp2<-diff(p2);colnames(dp2)<-"EWZ1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),Lag(dp3,6), EMCt)
+
+colnames(ob)<-c("Ibov","Ibov1","Ibov2","Ibov3","Ibov4","Ibov5","Ibov6",
+                "EWZ1","EWZ2","EWZ3","EWZ4","EWZ5","EWZ6",
+                "C1","C2","C3","C4","C5","C6","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$Ibov))
+
+Ar<-rbind(cons, Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,Ob$Ibov5,Ob$Ibov6,
+          Ob$EWZ1,Ob$EWZ2,Ob$EWZ3,Ob$EWZ4,Ob$EWZ5,Ob$EWZ6,
+          Ob$C1, Ob$C2, Ob$C3,Ob$C4, Ob$C5, Ob$C6, Ob$EMCt1)  #20
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,20,T)) #20
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(20) # mmatriz da relação entre os alphas
+Rt <- diag(20)   #matriz de relação dos erros
+Qt <- matrix(0, 20,20) #Matriz de covariancias dos alphas
+Qt[20,20]<-NA
+Qt
+
+
+#              constante, ibov1,ibov2, ibov3,ibov4,ibov5, ibov6,
+#                         ewz1,ewz2,ewz3, ewz4,ewz5,ewz6, 
+#                          ca1,ca2,ca3, ca4,ca5,ca6, ECM
+
+
+summary(KfBR_10)
+
+a1 <- matrix(c( 3370.1793,
+                0.0095,0.0034,-0.0078,0.0125,-0.0446,-0.0392,
+                0.0931,-0.0199,-0.0250,-0.0068,-0.0061,0.1130, 
+                -0.0954,-0.0350,-0.0059,-0.0096,-0.0083,0.0785,-0.0585 ), 20, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 20, 20) #Parte não difusa de a1
+
+P1d<-matrix(0,20,20)
+
+P1d[20,20]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$Ibov ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+# extract filtered and smoothed alpha and betta
+alpha.KFS <- ts( cbind(y.SS.KFS$a[,20], y.SS.KFS$alphahat[,11]) )[-c(1:10)]
+
+betta.KFS <- ts( cbind(y.SS.KFS$a[,2], y.SS.KFS$alphahat[,2]), start=c(1981,4), frequency=12)
+
+par(mfrow=c(1,1))
+
+
+# plot filtered and smoothed state alpha and betta
+plot.ts(abs(y.SS.KFS$alphahat[,20]), plot.type="single", xlab="",ylab="Alpha", col=c("blue","red"), lwd=2)
+legend("topright", c("filtered","smoothed"), col=c("blue","red"), lwd=2, cex=0.7, bty="n")
+
+# plot smoothed state alpha and betta
+plot.ts(abs(y.SS.KFS$alphahat[,11]), plot.type="single", xlab="",ylab="Alpha", col="red", lwd=2)
+
+
+
+
+
+legend("topright", "smoothed", col="red", lwd=2, cex=0.7, bty="n")
+plot.ts(betta.KFS[,2], plot.type="single", xlab="",ylab="Beta", col="red", lwd=2)
+legend("topright", "smoothed", col="red", lwd=2, cex=0.7, bty="n")
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 20])
+mean(y.SS.KFS$a[, 2])
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 1])
+mean(y.SS.KFS$alphahat[, 2])
+
+
+#Alpha1 BR 10 minutos pre covid 
+
+a1BR10p<-y.SS.KFS$alphahat[,20]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+summary(KfBR_10)
+
+p1<-10000*log(x1p10$Ewz)
+p2<-10000*log(x1p10$Ibov)
+p3<-10000*log(x1p10$Ca)
+
+
+ECM<-p2-1.113976232*p1-1.150438044*p3
+
+dp1<-diff(p1);colnames(dp1)<-"EWZ"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3), Lag(dp3,4),Lag(dp3,5),Lag(dp3,6), EMCt)
+
+colnames(ob)<-c("EWZ","EWZ1","EWZ2","EWZ3","EWZ4","EWZ5","EWZ6",
+                "Ibov1","Ibov2","Ibov3","Ibov4","Ibov5","Ibov6",
+                "C1","C2","C3","C4","C5","C6","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$EWZ))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$EWZ1,Ob$EWZ2,Ob$EWZ3,Ob$EWZ4,Ob$EWZ5,Ob$EWZ6,
+          Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,Ob$Ibov5,Ob$Ibov6,
+          Ob$C1, Ob$C2, Ob$C3,Ob$C4, Ob$C5, Ob$C6, Ob$EMCt1)  #20
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,20,T)) #20
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(20) # mmatriz da relação entre os alphas
+Rt <- diag(20)   #matriz de relação dos erros
+Qt <- matrix(0, 20,20) #Matriz de covariancias dos alphas
+Qt[20,20]<-NA
+Qt
+
+summary(KfBR_10)
+
+
+
+#              constante, 
+#               ewz1,ewz2,ewz3, ewz4,ewz5,ewz6,
+#               ibov1,ibov2,ibov3,ibov4,ibov5,ibov6, 
+#               ca1,ca2,ca3,ca4,ca5,ca6,
+#                        ECM
+
+a1 <- matrix(c(339.4355,
+               -0.0156,-0.0091,-0.0120,0.0155,-0.0019,-0.0029,
+               0.0049,0.0143, 0.0080,-0.0313,0.0063, 0.0082,
+               -0.0328,-0.0007, 0.0161,0.0106,-0.0037,0.0241, -0.0059 ), 20, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 20, 20) #Parte não difusa de a1
+
+P1d<-matrix(0,20,20)
+
+P1d[20,20]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$EWZ ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+# extract filtered and smoothed alpha and betta
+alpha.KFS <- ts( cbind(y.SS.KFS$a[,11], y.SS.KFS$alphahat[,11]) )[-c(1:10)]
+
+betta.KFS <- ts( cbind(y.SS.KFS$a[,2], y.SS.KFS$alphahat[,2]), start=c(1981,4), frequency=12)
+
+par(mfrow=c(1,1))
+
+
+# plot filtered and smoothed state alpha and betta
+plot.ts(abs(y.SS.KFS$a[,11]), plot.type="single", xlab="",ylab="Alpha", col=c("blue","red"), lwd=2)
+legend("topright", c("filtered","smoothed"), col=c("blue","red"), lwd=2, cex=0.7, bty="n")
+
+# plot smoothed state alpha and betta
+plot.ts(abs(y.SS.KFS$alphahat[,20]), plot.type="single", xlab="",ylab="Alpha", col="red", lwd=2)
+
+
+
+
+
+legend("topright", "smoothed", col="red", lwd=2, cex=0.7, bty="n")
+plot.ts(betta.KFS[,2], plot.type="single", xlab="",ylab="Beta", col="red", lwd=2)
+legend("topright", "smoothed", col="red", lwd=2, cex=0.7, bty="n")
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 20])
+mean(y.SS.KFS$a[, 2])
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 1])
+mean(y.SS.KFS$alphahat[, 2])
+
+
+#Alpha2 BR 5 minutos pre covid 
+
+a2BR10p<-y.SS.KFS$alphahat[,20]
+
+
+
+
+
+
+#Cambio
+
+summary(KfBR_10)
+
+p1<-10000*log(x1p10$Ca)
+p2<-10000*log(x1p10$Ibov)
+p3<-10000*log(x1p10$Ewz)
+
+
+ECM<-p2-1.113976232*p3-1.150438044*p1
+
+dp1<-diff(p1);colnames(dp1)<-"C"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"Ewz1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3), Lag(dp3,4),Lag(dp3,5),Lag(dp3,6), EMCt)
+
+colnames(ob)<-c("C","C1","C2","C3","C4","C5","C6",
+                "Ibov1","Ibov2","Ibov3","Ibov4","Ibov5","Ibov6",
+                "EWZ1","EWZ2","EWZ3","EWZ4","EWZ5","EWZ6","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$C))
+
+head(Ob)
+
+Ar<-rbind(cons,Ob$C1, Ob$C2, Ob$C3,Ob$C4, Ob$C5, Ob$C6,
+          Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,Ob$Ibov5,Ob$Ibov6,
+          Ob$EWZ1,Ob$EWZ2,Ob$EWZ3,Ob$EWZ4,Ob$EWZ5,Ob$EWZ6, Ob$EMCt1)  #20
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,20,T)) #20
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(20) # mmatriz da relação entre os alphas
+Rt <- diag(20)   #matriz de relação dos erros
+Qt <- matrix(0, 20,20) #Matriz de covariancias dos alphas
+Qt[20,20]<-NA
+Qt
+
+summary(KfBR_10)
+
+
+
+#              constante, 
+#               ca1,ca2,ca3,ca4,ca5,ca6,
+#               ibov1,ibov2,ibov3,ibov4,ibov5,ibov6, 
+#                ewz1,ewz2,ewz3, ewz4,ewz5,ewz6,
+#                        ECM
+
+a1 <- matrix(c(-1847.7093,
+               -0.0633,-0.0052,0.0417,-0.0068,-0.0073,-0.0402,
+               -0.0316,-0.0177,0.0299,-0.0054, 0.0189,0.0319,
+                0.0085, 0.0201,0.0142,0.0055,0.0037,-0.0687, -0.0059 ), 20, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 20, 20) #Parte não difusa de a1
+
+P1d<-matrix(0,20,20)
+
+P1d[20,20]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$C ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+# extract filtered and smoothed alpha and betta
+alpha.KFS <- ts( cbind(y.SS.KFS$a[,11], y.SS.KFS$alphahat[,11]) )[-c(1:10)]
+
+betta.KFS <- ts( cbind(y.SS.KFS$a[,2], y.SS.KFS$alphahat[,2]), start=c(1981,4), frequency=12)
+
+par(mfrow=c(1,1))
+
+
+# plot filtered and smoothed state alpha and betta
+plot.ts(abs(y.SS.KFS$a[,11]), plot.type="single", xlab="",ylab="Alpha", col=c("blue","red"), lwd=2)
+legend("topright", c("filtered","smoothed"), col=c("blue","red"), lwd=2, cex=0.7, bty="n")
+
+# plot smoothed state alpha and betta
+plot.ts(abs(y.SS.KFS$alphahat[,20]), plot.type="single", xlab="",ylab="Alpha", col="red", lwd=2)
+
+
+
+
+
+legend("topright", "smoothed", col="red", lwd=2, cex=0.7, bty="n")
+plot.ts(betta.KFS[,2], plot.type="single", xlab="",ylab="Beta", col="red", lwd=2)
+legend("topright", "smoothed", col="red", lwd=2, cex=0.7, bty="n")
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 20])
+mean(y.SS.KFS$a[, 2])
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 1])
+mean(y.SS.KFS$alphahat[, 2])
+
+
+#Alpha3 BR 5 minutos pre covid  cambio
+
+a3BR10p<-y.SS.KFS$alphahat[,20]
+
+
+
+
+A_BR_10_P<-matrix(c(a1BR10p,a2BR10p,a3BR10p), ncol = 3)
+
+
+heyho<-apply(A_BR_5_P, MARGIN = 1, FUN = csDin1)
+
+
+Ao_10_P_BR<-matrix(cbind(
+  apply(A_BR_10_P, MARGIN = 1, FUN = csDin1),
+  apply(A_BR_10_P, MARGIN = 1, FUN = csDin2),
+  apply(A_BR_10_P, MARGIN = 1, FUN = csDin3)
+),
+ncol=3)
+
+
+par(mfrow=c(3,1))
+plot(100*ts(Ao_10_P_BR[,1]), main="", xlab="Time", ylab="Ibov - 10 Minutes", col="red")
+plot(100*ts(Ao_10_P_BR[,2]), main="", xlab="Time", ylab="EWZ - 10 Minutes", col="blue")
+plot(100*ts(Ao_10_P_BR[,3]), main="", xlab="Time", ylab="Exchange rate - 10 Minutes", col="green")
+
+
+summary(Ao_10_P_BR[,3])
+sd(Ao_10_P_BR[,3])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#CP para o Ibov     5minBRPse10primeiros
+
+
+#Cpibov10<-abs(a2BR10p)/(abs(a2BR10p)+abs(a1BR10p))
+
+#Cpibov10<-Cpibov10[-c(1:10)]
+
+#par(mfrow=c(2,1))
+
+plot(Cpibov10)
+legend("topleft", c("Price Discovery Dynamic Contribution for the Ibovespa 10 Minutes"), col=c("black"), lwd=2, cex=0.7, bty="n")
+
+Cpewz10<-1-Cpibov10
+
+plot(Cpewz10)
+legend("topleft", c("Price Discovery Dynamic Contribution for the EWZ 10 Minutes"), col=c("black"), lwd=2, cex=0.7, bty="n")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+################################
+
+
+#15 minutes
+
+
+KfBR_15<-VECM(10000*log(x1p15), 4, r=1, estim="ML")
+
+
+summary(KfBR_15)
+
+p1<-10000*log(x1p15$Ibov)
+p2<-10000*log(x1p15$Ewz)
+p3<-10000*log(x1p15$Ca)
+
+
+ECM<-p1-1.11335*p2-1.150377*p3
+
+dp1<-diff(p1);colnames(dp1)<-"Ibov"
+dp2<-diff(p2);colnames(dp2)<-"EWZ1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4), EMCt)
+
+colnames(ob)<-c("Ibov","Ibov1","Ibov2","Ibov3","Ibov4",
+                "EWZ1","EWZ2","EWZ3","EWZ4",
+                "C1","C2","C3","C4","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$Ibov))
+
+Ar<-rbind(cons, Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,
+          Ob$EWZ1,Ob$EWZ2,Ob$EWZ3,Ob$EWZ4,
+          Ob$C1, Ob$C2, Ob$C3,Ob$C4, Ob$EMCt1)  #14
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,14,T)) #20
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(14) # mmatriz da relação entre os alphas
+Rt <- diag(14)   #matriz de relação dos erros
+Qt <- matrix(0, 14,14) #Matriz de covariancias dos alphas
+Qt[14,14]<-NA
+Qt
+
+
+#              constante, ibov1,ibov2, ibov3,ibov4,
+#                         ewz1,ewz2,ewz3, ewz4,
+#                          ca1,ca2,ca3, ca4, ECM
+
+
+summary(KfBR_15)
+
+a1 <- matrix(c( 5086.0746,
+                0.0141,    0.0150,    -0.0353,  -0.0507,
+                0.0357,  -0.0410,  -0.0103,0.1146,
+                -0.0610, -0.0253, -0.0359, 0.0822,-0.0883 ), 14, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 14, 14) #Parte não difusa de a1
+
+P1d<-matrix(0,14,14)
+
+P1d[14,14]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$Ibov ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 14])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 14])
+
+
+
+#Alpha1 BR 15 minutos pre covid 
+
+a1BR15p<-y.SS.KFS$alphahat[,14]
+
+
+
+
+
+
+
+
+
+
+
+#ewz
+
+summary(KfBR_15)
+
+p1<-10000*log(x1p15$Ewz)
+p2<-10000*log(x1p15$Ibov)
+p3<-10000*log(x1p15$Ca)
+
+
+ECM<-p2-1.11335*p1-1.150377*p3
+
+dp1<-diff(p1);colnames(dp1)<-"EWZ"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3), Lag(dp3,4), EMCt)
+
+colnames(ob)<-c("EWZ","EWZ1","EWZ2","EWZ3","EWZ4",
+                "Ibov1","Ibov2","Ibov3","Ibov4",
+                "C1","C2","C3","C4","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$EWZ))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$EWZ1,Ob$EWZ2,Ob$EWZ3,Ob$EWZ4,
+          Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,
+          Ob$C1, Ob$C2, Ob$C3,Ob$C4, Ob$EMCt1)  #14
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,14,T)) #14
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(14) # mmatriz da relação entre os alphas
+Rt <- diag(14)   #matriz de relação dos erros
+Qt <- matrix(0, 14,14) #Matriz de covariancias dos alphas
+Qt[14,14]<-NA
+Qt
+
+summary(KfBR_15)
+
+
+
+#              constante, 
+#               ewz1,ewz2,ewz3, ewz4,
+#               ibov1,ibov2,ibov3,ibov4,
+#               ca1,ca2,ca3,ca4,
+#                        ECM
+
+a1 <- matrix(c( 487.4383,
+                -0.0245,  -0.0171, 0.0074, -0.0027,
+                0.0061,   0.0279, -0.0370, 0.0069,
+                -0.0448, 0.0194, 0.0171,0.2375,   -0.0085 ), 14, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 14, 14) #Parte não difusa de a1
+
+P1d<-matrix(0,14,14)
+
+P1d[14,14]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$EWZ ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 14])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 14])
+
+
+
+#Alpha2 BR 15 minutos pre covid 
+
+a2BR15p<-y.SS.KFS$alphahat[,14]
+
+#Cambio dos 15 mins
+
+
+summary(KfBR_15)
+
+p1<-10000*log(x1p15$Ca)
+p2<-10000*log(x1p15$Ibov)
+p3<-10000*log(x1p15$Ewz)
+
+
+ECM<-p2-1.11335*p3-1.150377*p1
+
+dp1<-diff(p1);colnames(dp1)<-"C"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"Ewz1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3), Lag(dp3,4), EMCt)
+
+colnames(ob)<-c("C","C1","C2","C3","C4",
+                "Ibov1","Ibov2","Ibov3","Ibov4",
+                "EWZ1","EWZ2","EWZ3","EWZ4","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$C))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$C1,Ob$C2,Ob$C3,Ob$C4,
+          Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,
+          Ob$EWZ1, Ob$EWZ2, Ob$EWZ3,Ob$EWZ4, Ob$EMCt1)  #14
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,14,T)) #14
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(14) # mmatriz da relação entre os alphas
+Rt <- diag(14)   #matriz de relação dos erros
+Qt <- matrix(0, 14,14) #Matriz de covariancias dos alphas
+Qt[14,14]<-NA
+Qt
+
+summary(KfBR_15)
+
+
+
+#              constante, 
+#               ca1,ca2,ca3,ca4,
+#               ibov1,ibov2,ibov3,ibov4,
+#               ewz1,ewz2,ewz3, ewz4,
+#                        ECM
+
+a1 <- matrix(c( -2758.6827,
+                -0.0919,0.0619,-0.0194,-0.0558,
+                -0.0433,0.0222,0.0134,0.0341,
+                0.0195, 0.0219,0.0063, -0.0690,0.0479 ), 14, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 14, 14) #Parte não difusa de a1
+
+P1d<-matrix(0,14,14)
+
+P1d[14,14]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$C ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 14])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 14])
+
+
+
+#Alpha3 BR 15 minutos pre covid 
+
+a3BR15p<-y.SS.KFS$alphahat[,14]
+
+
+
+
+A_BR_15_P<-matrix(c(a1BR15p,a2BR15p,a3BR15p), ncol = 3)
+
+
+heyho<-apply(A_BR_15_P, MARGIN = 1, FUN = csDin1)
+
+
+Ao_15_P_BR<-matrix(cbind(
+  apply(A_BR_15_P, MARGIN = 1, FUN = csDin1),
+  apply(A_BR_15_P, MARGIN = 1, FUN = csDin2),
+  apply(A_BR_15_P, MARGIN = 1, FUN = csDin3)
+),
+ncol=3)
+
+
+par(mfrow=c(3,1))
+plot(100*ts(Ao_15_P_BR[,1]), main="", xlab="Time", ylab="Ibov - 15 Minutes", col="red")
+plot(100*ts(Ao_15_P_BR[,2]), main="", xlab="Time", ylab="EWZ - 15 Minutes", col="blue")
+plot(100*ts(Ao_15_P_BR[,3]), main="", xlab="Time", ylab="Exchange rate - 15 Minutes", col="green")
+
+
+summary(Ao_15_P_BR[,3])*100
+
+sd(Ao_15_P_BR[,3])*100
+
+#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#CP para o Ibov     15minBRPse10primeiros
+
+
+#Cpibov15<-abs(a2BR15p)/(abs(a2BR15p)+abs(a1BR15p))
+
+#Cpibov15<-Cpibov15[-c(1:10)]
+
+#par(mfrow=c(2,1))
+
+#plot(Cpibov15)
+#legend("topleft", c("Price Discovery Dynamic Contribution for the Ibovespa 15 Minutes"), col=c("black"), lwd=2, cex=0.7, bty="n")
+
+#Cpewz15<-1-Cpibov15
+
+#plot(Cpewz15)
+#legend("topleft", c("Price Discovery Dynamic Contribution for the EWZ 15 Minutes"), col=c("black"), lwd=2, cex=0.7, bty="n")
+
+
+
+
+
+
+
+
+
+
+
+
+####BR pós covid
+
+
+
+
+#5 minutes
+
+
+KfpBR_5<-VECM(10000*log(x1c5), 2, r=1, estim="ML")
+
+
+summary(KfpBR_5)
+
+p1<-10000*log(x1c5$Ibov)
+p2<-10000*log(x1c5$Ewz)
+p3<-10000*log(x1c5$Ca)
+
+
+ECM<-p1-1.056855*p2--1.010171*p3
+
+dp1<-diff(p1);colnames(dp1)<-"Ibov"
+dp2<-diff(p2);colnames(dp2)<-"EWZ1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),
+          Lag(dp2,1),Lag(dp2,2),
+          Lag(dp3,1),Lag(dp3,2), EMCt)
+
+colnames(ob)<-c("Ibov","Ibov1","Ibov2",
+                "EWZ1","EWZ2",
+                "C1","C2","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$Ibov))
+
+Ar<-rbind(cons, Ob$Ibov1,Ob$Ibov2,
+          Ob$EWZ1,Ob$EWZ2,
+          Ob$C1, Ob$C2, Ob$EMCt1)  #8
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,8,T)) #8
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(8) # mmatriz da relação entre os alphas
+Rt <- diag(8)   #matriz de relação dos erros
+Qt <- matrix(0, 8,8) #Matriz de covariancias dos alphas
+Qt[8,8]<-NA
+Qt
+
+
+#              constante, ibov1,ibov2, 
+#                         ewz1,ewz2,
+#                          ca1,ca2, ECM
+
+
+summary(KfpBR_5)
+
+a1 <- matrix(c( 162.2320,
+                -0.0051,    -0.0130,    
+                0.0680,     0.1004, 
+                -0.1150,    -0.0862, -0.0026 ), 8, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 8, 8) #Parte não difusa de a1
+
+P1d<-matrix(0,8,8)
+
+P1d[8,8]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$Ibov ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood  #9
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 8])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 8])
+
+
+
+#Alpha1 BR 5 minutos  covid 
+
+a1BR5c<-y.SS.KFS$alphahat[,8]
+
+
+
+###EWZ pos pandeia 5 min
+
+summary(KfpBR_5)
+
+p1<-10000*log(x1c5$Ewz)
+p2<-10000*log(x1c5$Ibov)
+p3<-10000*log(x1c5$Ca)
+
+
+ECM<-p2-1.056855*p1-1.010171*p3
+
+dp1<-diff(p1);colnames(dp1)<-"EWZ"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),
+          Lag(dp2,1),Lag(dp2,2),
+          Lag(dp3,1),Lag(dp3,2), EMCt)
+
+colnames(ob)<-c("EWZ","EWZ1","EWZ2",
+                "Ibov1","Ibov2",
+                "C1","C2","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$EWZ))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$EWZ1,Ob$EWZ2,
+          Ob$Ibov1,Ob$Ibov2,
+          Ob$C1, Ob$C2, Ob$EMCt1)  #8
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,8,T)) #8
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(8) # mmatriz da relação entre os alphas
+Rt <- diag(8)   #matriz de relação dos erros
+Qt <- matrix(0, 8,8) #Matriz de covariancias dos alphas
+Qt[8,8]<-NA
+Qt
+
+summary(KfpBR_5)
+
+
+
+#              constante, 
+#               ewz1,ewz2,
+#               ibov1,ibov2,
+#               ca1,ca2,
+#                        ECM
+
+a1 <- matrix(c( -17.4251,
+                -0.0050,0.0116,
+                -0.0114,-0.0090, 
+                0.0022, -0.0159,    0.0003 ), 8, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 8, 8) #Parte não difusa de a1
+
+P1d<-matrix(0,8,8)
+
+P1d[8,8]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$EWZ ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 8])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 8])
+
+
+
+#Alpha2 BR 15 minutos pre covid 
+
+a2BR5c<-y.SS.KFS$alphahat[,8]
+
+
+
+
+
+
+
+###Cambio pos pandeia 5 min
+
+summary(KfpBR_5)
+
+p1<-10000*log(x1c5$Ca)
+p2<-10000*log(x1c5$Ibov)
+p3<-10000*log(x1c5$Ewz)
+
+
+ECM<-p2-1.056855*p3-1.010171*p1
+
+dp1<-diff(p1);colnames(dp1)<-"C"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"EWZ1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),
+          Lag(dp2,1),Lag(dp2,2),
+          Lag(dp3,1),Lag(dp3,2), EMCt)
+
+colnames(ob)<-c("C","C1","C2",
+                "Ibov1","Ibov2",
+                "EWZ1","EWZ2","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$C))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$C1,Ob$C2,
+          Ob$Ibov1,Ob$Ibov2,
+          Ob$EWZ1, Ob$EWZ2, Ob$EMCt1)  #8
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,8,T)) #8
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(8) # mmatriz da relação entre os alphas
+Rt <- diag(8)   #matriz de relação dos erros
+Qt <- matrix(0, 8,8) #Matriz de covariancias dos alphas
+Qt[8,8]<-NA
+Qt
+
+summary(KfpBR_5)
+
+
+
+#              constante, 
+#               ca1,ca2,
+#               ibov1,ibov2,
+#               
+#                ewz1,ewz2,         ECM
+
+a1 <- matrix(c( -90.5403,
+                -0.0093, -0.0031,
+                -0.0019, 0.0022,
+                -0.0068,-0.0062,    0.0015 ), 8, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 8, 8) #Parte não difusa de a1
+
+P1d<-matrix(0,8,8)
+
+P1d[8,8]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$C ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 8])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 8])
+
+
+
+#Alpha3 BR 5 minutos pos covid 
+
+a3BR5c<-y.SS.KFS$alphahat[,8]
+
+
+
+A_BR_5_c<-matrix(c(a1BR5c,a2BR5c,a3BR5c), ncol = 3)
+
+
+
+
+Ao_5_C_BR<-matrix(cbind(
+  apply(A_BR_5_c, MARGIN = 1, FUN = csDin1),
+  apply(A_BR_5_c, MARGIN = 1, FUN = csDin2),
+  apply(A_BR_5_c, MARGIN = 1, FUN = csDin3)
+),
+ncol=3)
+
+
+par(mfrow=c(3,1))
+plot(100*ts(Ao_5_C_BR[,1]), main="", xlab="Time", ylab="Ibov - 5 Minutes", col="red")
+plot(100*ts(Ao_5_C_BR[,2]), main="", xlab="Time", ylab="EWZ - 5 Minutes", col="blue")
+plot(100*ts(Ao_5_C_BR[,3]), main="", xlab="Time", ylab="Exchange rate - 5 Minutes", col="green")
+
+
+summary(Ao_5_C_BR[,3])*100
+
+sd(Ao_5_C_BR[,3])*100
+
+#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#CP para o Ibov     15minBRPse10primeiros
+
+
+#Ccibov5<-abs(a2BR5c)/(abs(a2BR5c)+abs(a1BR5c))
+
+#Ccibov5<-Ccibov5[-c(1:10)]
+
+#par(mfrow=c(2,1))
+
+#plot(Ccibov5)
+#legend("topleft", c("Price Discovery Dynamic Contribution for the Ibovespa 5 Minutes"), col=c("black"), lwd=2, cex=0.7, bty="n")
+
+#Ccewz5<-1-Ccibov5
+
+#plot(Ccewz5)
+#legend("topleft", c("Price Discovery Dynamic Contribution for the EWZ 5 Minutes"), col=c("black"), lwd=2, cex=0.7, bty="n")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#10 minutes
+
+
+KfpBR_10<-VECM(10000*log(x1c10), 6, r=1, estim="ML")
+
+
+summary(KfpBR_10)
+
+p1<-10000*log(x1c10$Ibov)
+p2<-10000*log(x1c10$Ewz)
+p3<-10000*log(x1c10$Ca)
+
+
+ECM<-p1-1.02617*p2-0.9414828*p3
+
+dp1<-diff(p1);colnames(dp1)<-"Ibov"
+dp2<-diff(p2);colnames(dp2)<-"EWZ1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),Lag(dp3,6), EMCt)
+
+colnames(ob)<-c("Ibov","Ibov1","Ibov2","Ibov3","Ibov4","Ibov5","Ibov6",
+                "EWZ1","EWZ2","EWZ3","EWZ4","EWZ5","EWZ6",
+                "C1","C2", "C3","C4", "C5","C6","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$Ibov))
+
+Ar<-rbind(cons, Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,Ob$Ibov5,Ob$Ibov6,
+          Ob$EWZ1,Ob$EWZ2,Ob$EWZ3,Ob$EWZ4,Ob$EWZ5,Ob$EWZ6,
+          Ob$C1, Ob$C2,Ob$C3, Ob$C4,Ob$C5, Ob$C6, Ob$EMCt1) # 20
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,20,T)) #20
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(20) # mmatriz da relação entre os alphas
+Rt <- diag(20)   #matriz de relação dos erros
+Qt <- matrix(0, 20,20) #Matriz de covariancias dos alphas
+Qt[20,20]<-NA
+Qt
+
+
+#              constante, ibov1,ibov2,ibov3,ibov4,ibov5,ibov6, 
+#                         ewz1,ewz2, ewz3,ewz4, ewz5,ewz6,
+#                          ca1,ca2,ca3,ca4,ca5,ca6, ECM
+
+
+summary(KfpBR_10)
+
+a1 <- matrix(c(209.4820,
+               -0.0171,  -0.0301, -0.0360, -0.0269, -0.0530, -0.0243,
+               0.1182,  0.0146, 0.0339, 0.0282, 0.0330, 0.1815,
+               -0.1162, 0.0173, 0.0145, 0.0172, -0.0123, 0.1186,-0.0032 ), 20, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 20, 20) #Parte não difusa de a1
+
+P1d<-matrix(0,20,20)
+
+P1d[20,20]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$Ibov ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood  #20+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 20])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 20])
+
+
+
+#Alpha1 BR 10 minutos  covid 
+
+a1BR10c<-y.SS.KFS$alphahat[,20]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###EWZ
+
+summary(KfpBR_10)
+
+p1<-10000*log(x1c10$Ewz)
+p2<-10000*log(x1c10$Ibov)
+p3<-10000*log(x1c10$Ca)
+
+
+ECM<-p2-1.02617*p1-0.9414828*p3
+
+dp1<-diff(p1);colnames(dp1)<-"EWZ"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),Lag(dp3,6), EMCt)
+
+colnames(ob)<-c("EWZ","EWZ1","EWZ2","EWZ3","EWZ4","EWZ5","EWZ6",
+                "Ibov1","Ibov2","Ibov3","Ibov4","Ibov5","Ibov6",
+                "C1","C2","C3","C4","C5","C6","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$EWZ))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$EWZ1,Ob$EWZ2, Ob$EWZ3,Ob$EWZ4, Ob$EWZ5,Ob$EWZ6,
+          Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,Ob$Ibov5,Ob$Ibov6,
+          Ob$C1, Ob$C2,Ob$C3, Ob$C4,Ob$C5, Ob$C6, Ob$EMCt1)  #20
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,20,T)) #20
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(20) # mmatriz da relação entre os alphas
+Rt <- diag(20)   #matriz de relação dos erros
+Qt <- matrix(0,20,20) #Matriz de covariancias dos alphas
+Qt[20,20]<-NA
+Qt
+
+summary(KfpBR_10)
+
+
+
+#              constante, 
+#               ewz1,ewz2, ewz3,ewz4, ewz5,ewz6,
+#               ibov1,ibov2,ibov3,ibov4,ibov5,ibov6,
+#               ca1,ca2,ca3,ca4,ca5,ca6,
+#                        ECM
+
+a1 <- matrix(c(-32.3027,
+               0.0123, -0.0114, 0.0077, 0.0015,0.0220, -0.0087,  
+               -0.0239, -0.0165, -0.0129, -0.0092, -0.0137, -0.0157,
+               -0.0158, -0.0194, 0.0160, -0.0176, 0.0234, -0.0289,    0.0005), 20, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 20, 20) #Parte não difusa de a1
+
+P1d<-matrix(0,20,20)
+
+P1d[20,20]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$EWZ ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 20+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 20])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 20])
+
+
+
+#Alpha2 BR 10 minutos pre covid 
+
+a2BR10c<-y.SS.KFS$alphahat[,20]
+
+
+
+
+
+
+###CABIO
+
+summary(KfpBR_10)
+
+p1<-10000*log(x1c10$Ca)
+p2<-10000*log(x1c10$Ibov)
+p3<-10000*log(x1c10$Ewz)
+
+
+ECM<-p2 -0.9414828*p1-1.02617*p3
+
+dp1<-diff(p1);colnames(dp1)<-"C"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"EWZ1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),Lag(dp3,6), EMCt)
+
+colnames(ob)<-c("C","C1","C2","C3","C4","C5","C6",
+                "Ibov1","Ibov2","Ibov3","Ibov4","Ibov5","Ibov6",
+                "EWZ1","EWZ2","EWZ3","EWZ4","EWZ5","EWZ6",
+                "EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$C))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$C1, Ob$C2,Ob$C3, Ob$C4,Ob$C5, Ob$C6,
+          Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,Ob$Ibov5,Ob$Ibov6,
+          Ob$EWZ1,Ob$EWZ2, Ob$EWZ3,Ob$EWZ4, Ob$EWZ5,Ob$EWZ6, Ob$EMCt1)  #20
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,20,T)) #20
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(20) # mmatriz da relação entre os alphas
+Rt <- diag(20)   #matriz de relação dos erros
+Qt <- matrix(0,20,20) #Matriz de covariancias dos alphas
+Qt[20,20]<-NA
+Qt
+
+summary(KfpBR_10)
+
+
+
+#              constante, 
+#               ca1,ca2,ca3,ca4,ca5,ca6, 
+#               ibov1,ibov2,ibov3,ibov4,ibov5,ibov6,
+#               ewz1,ewz2, ewz3,ewz4, ewz5,ewz6,
+#                        ECM
+
+a1 <- matrix(c( -89.8633,
+                -0.0076, -0.0152, -0.0182, -0.0023, 0.0144, -0.0792,  
+                0.0176, 0.0113, 0.0179,  0.0132, 0.0461, 0.0180,
+                -0.0147, -0.0120, -0.0139, -0.0207, -0.0190, -0.1282,   0.0014), 20, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 20, 20) #Parte não difusa de a1
+
+P1d<-matrix(0,20,20)
+
+P1d[20,20]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$C ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 20+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 20])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 20])
+
+
+
+#Alpha3 BR 10 minutos pos covid 
+
+a3BR10c<-y.SS.KFS$alphahat[,20]
+
+
+###
+A_BR_10_c<-matrix(c(a1BR10c,a2BR10c,a3BR10c), ncol = 3)
+
+
+
+
+Ao_10_C_BR<-matrix(cbind(
+  apply(A_BR_10_c, MARGIN = 1, FUN = csDin1),
+  apply(A_BR_10_c, MARGIN = 1, FUN = csDin2),
+  apply(A_BR_10_c, MARGIN = 1, FUN = csDin3)
+),
+ncol=3)
+
+
+par(mfrow=c(3,1))
+plot(100*ts(Ao_10_C_BR[,1]), main="", xlab="Time", ylab="Ibov - 10 Minutes", col="red")
+plot(100*ts(Ao_10_C_BR[,2]), main="", xlab="Time", ylab="EWZ - 10 Minutes", col="blue")
+plot(100*ts(Ao_10_C_BR[,3]), main="", xlab="Time", ylab="Exchange rate - 10 Minutes", col="green")
+
+
+summary(Ao_10_C_BR[,3])*100
+
+sd(Ao_10_C_BR[,3])*100
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#CP para o Ibov     10minBRPse10primeiros
+
+
+#Ccibov10<-abs(a2BR10c)/(abs(a2BR10c)+abs(a1BR10c))
+
+#Ccibov10<-Ccibov10[-c(1:10)]
+
+#par(mfrow=c(2,1))
+
+#plot(Ccibov10)
+#legend("topleft", c("Price Discovery Dynamic Contribution for the Ibovespa 10 Minutes"), col=c("black"), lwd=2, cex=0.7, bty="n")
+
+#Ccewz10<-1-Ccibov10
+
+#plot(Ccewz10)
+#legend("topleft", c("Price Discovery Dynamic Contribution for the EWZ 10 Minutes"), col=c("black"), lwd=2, cex=0.7, bty="n")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#15 minutes
+
+
+KfpBR_15<-VECM(10000*log(x1c15), 8, r=1, estim="ML")
+
+
+summary(KfpBR_15)
+
+p1<-10000*log(x1c15$Ibov)
+p2<-10000*log(x1c15$Ewz)
+p3<-10000*log(x1c15$Ca)
+
+
+ECM<-p1-1.114369*p2-1.150284*p3
+
+dp1<-diff(p1);colnames(dp1)<-"Ibov"
+dp2<-diff(p2);colnames(dp2)<-"EWZ1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),Lag(dp1,7),Lag(dp1,8),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),Lag(dp2,7),Lag(dp2,8),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),Lag(dp3,6),Lag(dp3,7),Lag(dp3,8), EMCt)
+
+colnames(ob)<-c("Ibov","Ibov1","Ibov2","Ibov3","Ibov4","Ibov5","Ibov6","Ibov7","Ibov8",
+                "EWZ1","EWZ2","EWZ3","EWZ4","EWZ5","EWZ6","EWZ7","EWZ8",
+                "C1","C2", "C3","C4", "C5","C6","C7","C8","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$Ibov))
+
+Ar<-rbind(cons, Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,Ob$Ibov5,Ob$Ibov6,Ob$Ibov7,Ob$Ibov8,
+          Ob$EWZ1,Ob$EWZ2,Ob$EWZ3,Ob$EWZ4,Ob$EWZ5,Ob$EWZ6,Ob$EWZ7,Ob$EWZ8,
+          Ob$C1, Ob$C2,Ob$C3, Ob$C4,Ob$C5,Ob$C6,Ob$C7,Ob$C8, Ob$EMCt1) # 26
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,26,T)) #26
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(26) # mmatriz da relação entre os alphas
+Rt <- diag(26)   #matriz de relação dos erros
+Qt <- matrix(0, 26,26) #Matriz de covariancias dos alphas
+Qt[26,26]<-NA
+Qt
+
+
+#              constante, ibov1,ibov2,ibov3,ibov4,ibov5,ibov6, ibov7,ibov8, 
+#                         ewz1,ewz2, ewz3,ewz4, ewz5,ewz6, ewz7,ewz8,
+#                          ca1,ca2,ca3,ca4,ca5,ca6,ca7,ca8, ECM
+
+
+summary(KfpBR_15)
+
+a1 <- matrix(c(4310.5260,
+               -0.0024, -0.0024, -0.0522, -0.0735, -0.0105, -0.0338, -0.0111, -0.0489,
+               0.0522, -0.0263, 0.0051, 0.1359, 0.0174, 0.0274, 0.0292, 0.0685, 
+               -0.0444, -0.0083,  -0.0190, 0.1158, 0.0268, 0.0025, 0.0313, 0.0275, -0.0749   ), 26, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 26, 26) #Parte não difusa de a1
+
+P1d<-matrix(0,26,26)
+
+P1d[26,26]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$Ibov ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood  #26+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 26])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 26])
+
+
+
+#Alpha1 BR 15 minutos  covid 
+
+a1BR15c<-y.SS.KFS$alphahat[,26]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# segundo alpha ewz
+summary(KfpBR_15)
+
+p1<-10000*log(x1c15$Ewz)
+p2<-10000*log(x1c15$Ibov)
+p3<-10000*log(x1c15$Ca)
+
+
+ECM<-p2-1.114369*p1-1.150284*p3
+
+dp1<-diff(p1);colnames(dp1)<-"EWZ"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),Lag(dp1,7),Lag(dp1,8),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),Lag(dp2,7),Lag(dp2,8),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),Lag(dp3,6),Lag(dp3,7),Lag(dp3,8), EMCt)
+
+
+colnames(ob)<-c("EWZ","EWZ1","EWZ2","EWZ3","EWZ4","EWZ5","EWZ6","EWZ7","EWZ8",
+                "Ibov1","Ibov2","Ibov3","Ibov4","Ibov5","Ibov6","Ibov7","Ibov8",
+                "C1","C2","C3","C4","C5","C6","C7","C8","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$EWZ))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$EWZ1,Ob$EWZ2, Ob$EWZ3,Ob$EWZ4, Ob$EWZ5,Ob$EWZ6,Ob$EWZ7,Ob$EWZ8,
+          Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,Ob$Ibov5,Ob$Ibov6,Ob$Ibov7,Ob$Ibov8,
+          Ob$C1, Ob$C2,Ob$C3, Ob$C4,Ob$C5, Ob$C6,Ob$C7, Ob$C8, Ob$EMCt1)  #26
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,26,T)) #26
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(26) # mmatriz da relação entre os alphas
+Rt <- diag(26)   #matriz de relação dos erros
+Qt <- matrix(0,26,26) #Matriz de covariancias dos alphas
+Qt[26,26]<-NA
+Qt
+
+summary(KfpBR_15)
+
+
+
+#              constante, 
+#               ewz1,ewz2, ewz3,ewz4, ewz5,ewz6,ewz7,ewz8,
+#               ibov1,ibov2,ibov3,ibov4,ibov5,ibov6,ibov7,ibov8,
+#               ca1,ca2,ca3,ca4,ca5,ca6,ca7,ca8
+#                        ECM
+
+a1 <- matrix(c(76.0471,
+               -0.0150,-0.0075,0.0130,0.0078,0.0224,0.0238,-0.0058,0.0205,
+               -0.0051,0.0177,-0.0406,-0.0029,-0.0078,-0.0243,0.0273,0.0170,
+               -0.0342,0.0330,0.0212,0.0287,0.0427,0.0408,0.0121,0.0330,
+               -0.0013), 26, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 26, 26) #Parte não difusa de a1
+
+P1d<-matrix(0,26,26)
+
+P1d[26,26]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$EWZ ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 26+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 26])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 26])
+
+
+
+#Alpha2 BR 10 minutos pre covid 
+
+a2BR15c<-y.SS.KFS$alphahat[,26]
+
+
+
+
+
+
+
+
+
+#### Aqui faz cambio
+
+
+summary(KfpBR_15)
+
+p1<-10000*log(x1c15$Ca)
+p2<-10000*log(x1c15$Ibov)
+p3<-10000*log(x1c15$Ewz)
+
+
+ECM<-p2-1.114369*p3-1.150284*p1
+
+dp1<-diff(p1);colnames(dp1)<-"C"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"EWZ1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),Lag(dp1,7),Lag(dp1,8),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),Lag(dp2,7),Lag(dp2,8),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),Lag(dp3,6),Lag(dp3,7),Lag(dp3,8), EMCt)
+
+
+colnames(ob)<-c("C","C1","C2","C3","C4","C5","C6","C7","C8",
+                "Ibov1","Ibov2","Ibov3","Ibov4","Ibov5","Ibov6","Ibov7","Ibov8",
+                "EWZ1","EWZ2","EWZ3","EWZ4","EWZ5","EWZ6","EWZ7","EWZ8","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$C))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$C1, Ob$C2,Ob$C3, Ob$C4,Ob$C5, Ob$C6,Ob$C7, Ob$C8,
+          Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,Ob$Ibov5,Ob$Ibov6,Ob$Ibov7,Ob$Ibov8,
+          Ob$EWZ1,Ob$EWZ2, Ob$EWZ3,Ob$EWZ4, Ob$EWZ5,Ob$EWZ6,Ob$EWZ7,Ob$EWZ8, Ob$EMCt1)  #26
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,26,T)) #26
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(26) # mmatriz da relação entre os alphas
+Rt <- diag(26)   #matriz de relação dos erros
+Qt <- matrix(0,26,26) #Matriz de covariancias dos alphas
+Qt[26,26]<-NA
+Qt
+
+summary(KfpBR_15)
+
+
+
+#              constante, 
+#               ca1,ca2,ca3,ca4,ca5,ca6,ca7,ca8
+#               ibov1,ibov2,ibov3,ibov4,ibov5,ibov6,ibov7,ibov8,
+#               ewz1,ewz2, ewz3,ewz4, ewz5,ewz6,ewz7,ewz8, 
+#                        ECM
+
+a1 <- matrix(c(-2538.6058,
+               -0.0968, 0.0590, -0.0245, -0.0709, -0.0147, -0.0062, -0.0001,  -0.0251,
+               -0.0379, 0.0261, 0.0180, 0.0438, 0.0007, 0.0157, 0.0305, 0.0109,  
+               0.0146,0.0185,0.0025,-0.0763,-0.0043,-4.1e-05,-0.0077,-0.0369,
+               0.0441), 26, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 26, 26) #Parte não difusa de a1
+
+P1d<-matrix(0,26,26)
+
+P1d[26,26]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$C ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 26+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 26])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 26])
+
+
+
+#Alpha3 BR 15 minutos pos covid 
+
+a3BR15c<-y.SS.KFS$alphahat[,26]
+
+
+
+A_BR_15_c<-matrix(c(a1BR15c,a2BR15c,a3BR15c), ncol = 3)
+
+
+
+
+Ao_15_C_BR<-matrix(cbind(
+  apply(A_BR_15_c, MARGIN = 1, FUN = csDin1),
+  apply(A_BR_15_c, MARGIN = 1, FUN = csDin2),
+  apply(A_BR_15_c, MARGIN = 1, FUN = csDin3)
+),
+ncol=3)
+
+
+par(mfrow=c(3,1))
+plot(100*ts(Ao_15_C_BR[,1]), main="", xlab="Time", ylab="Ibov - 15 Minutes", col="red")
+plot(100*ts(Ao_15_C_BR[,2]), main="", xlab="Time", ylab="EWZ - 15 Minutes", col="blue")
+plot(100*ts(Ao_15_C_BR[,3]), main="", xlab="Time", ylab="Exchange rate - 15 Minutes", col="green")
+
+
+summary(Ao_15_C_BR[,3])*100
+
+sd(Ao_15_C_BR[,3])*100
+
+
+
+
+
+
+
+
+
+
+
+#CP para o Ibov     15minBRPse10primeiros
+
+
+#Ccibov15<-abs(a2BR15c)/(abs(a2BR15c)+abs(a1BR15c))
+
+#Ccibov15<-Ccibov15[-c(1:10)]
+
+#par(mfrow=c(2,1))
+
+#plot(Ccibov15)
+#legend("topleft", c("Price Discovery Dynamic Contribution for the Ibovespa 15 Minutes"), col=c("black"), lwd=2, cex=0.7, bty="n")
+
+#Ccewz15<-1-Ccibov15
+
+#plot(Ccewz15)
+#legend("topleft", c("Price Discovery Dynamic Contribution for the EWZ 15 Minutes"), col=c("black"), lwd=2, cex=0.7, bty="n")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###All BR 5 minutos
+
+
+
+
+#5 minutes
+
+
+KfAllBR_5<-VECM(10000*log(x15), 6, r=1, estim="ML")
+
+
+summary(KfAllBR_5)
+
+p1<-10000*log(x15$Ibov)
+p2<-10000*log(x15$Ewz)
+p3<-10000*log(x15$Ca)
+
+
+ECM<-p1-1.140902*p2-1.26749*p3
+
+dp1<-diff(p1);colnames(dp1)<-"Ibov"
+dp2<-diff(p2);colnames(dp2)<-"EWZ1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),Lag(dp3,6), EMCt)
+
+colnames(ob)<-c("Ibov","Ibov1","Ibov2","Ibov3","Ibov4","Ibov5","Ibov6",
+                "EWZ1","EWZ2","EWZ3","EWZ4","EWZ5","EWZ6",
+                "C1","C2", "C3","C4", "C5","C6","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$Ibov))
+
+Ar<-rbind(cons, Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,Ob$Ibov5,Ob$Ibov6,
+          Ob$EWZ1,Ob$EWZ2,Ob$EWZ3,Ob$EWZ4,Ob$EWZ5,Ob$EWZ6,
+          Ob$C1, Ob$C2,Ob$C3, Ob$C4,Ob$C5, Ob$C6, Ob$EMCt1) # 20
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,20,T)) #20
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(20) # mmatriz da relação entre os alphas
+Rt <- diag(20)   #matriz de relação dos erros
+Qt <- matrix(0, 20,20) #Matriz de covariancias dos alphas
+Qt[20,20]<-NA
+Qt
+
+
+#              constante, ibov1,ibov2,ibov3,ibov4,ibov5,ibov6, 
+#                         ewz1,ewz2, ewz3,ewz4, ewz5,ewz6,
+#                          ca1,ca2,ca3,ca4,ca5,ca6, ECM
+
+
+summary(KfAllBR_5)
+
+a1 <- matrix(c(167.4742,
+               -0.0142,-0.0216,0.0078,0.0071,0.0041,-0.0107,
+               0.0785, 0.0729,0.0411,0.0111, 0.0055,0.0095,
+               -0.1297,-0.0737,-0.0142,0.0006,0.0164,0.0044,
+               -0.0030 ), 20, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 20, 20) #Parte não difusa de a1
+
+P1d<-matrix(0,20,20)
+
+P1d[20,20]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$Ibov ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood  #20+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 20])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 20])
+
+
+
+#Alpha1 BR 5 minutos  covid 
+
+a1BR5a<-y.SS.KFS$alphahat[,20]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+summary(KfAllBR_5)
+
+p1<-10000*log(x15$Ewz)
+p2<-10000*log(x15$Ibov)
+p3<-10000*log(x15$Ca)
+
+
+ECM<-p2-1.140902*p1-1.26749*p3
+
+dp1<-diff(p1);colnames(dp1)<-"EWZ"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),Lag(dp3,6), EMCt)
+
+colnames(ob)<-c("EWZ","EWZ1","EWZ2","EWZ3","EWZ4","EWZ5","EWZ6",
+                "Ibov1","Ibov2","Ibov3","Ibov4","Ibov5","Ibov6",
+                "C1","C2","C3","C4","C5","C6","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$EWZ))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$EWZ1,Ob$EWZ2, Ob$EWZ3,Ob$EWZ4, Ob$EWZ5,Ob$EWZ6,
+          Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,Ob$Ibov5,Ob$Ibov6,
+          Ob$C1, Ob$C2,Ob$C3, Ob$C4,Ob$C5, Ob$C6, Ob$EMCt1)  #20
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,20,T)) #20
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(20) # mmatriz da relação entre os alphas
+Rt <- diag(20)   #matriz de relação dos erros
+Qt <- matrix(0,20,20) #Matriz de covariancias dos alphas
+Qt[20,20]<-NA
+Qt
+
+summary(KfAllBR_5)
+
+
+
+
+#              constante, 
+#               ewz1,ewz2, ewz3,ewz4, ewz5,ewz6,
+#               ibov1,ibov2,ibov3,ibov4,ibov5,ibov6,
+#               ca1,ca2,ca3,ca4,ca5,ca6,
+#                        ECM
+
+a1 <- matrix(c(-15.6059,
+               -0.0016,-0.0219,-0.0020,-0.0016,0.0049,-0.0102,
+               -0.0028,-0.0055,-0.0066,0.0184,0.0017,-0.0042,
+               0.0015, -0.0412,-0.0175,0.0139,-0.0079,0.0087,
+               0.0003), 20, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 20, 20) #Parte não difusa de a1
+
+P1d<-matrix(0,20,20)
+
+P1d[20,20]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$EWZ ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 20+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 20])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 20])
+
+
+
+#Alpha2 BR 5 minutos todo
+
+a2BR5a<-y.SS.KFS$alphahat[,20]
+
+
+
+
+
+
+#cambio
+
+summary(KfAllBR_5)
+
+p1<-10000*log(x15$Ca)
+p2<-10000*log(x15$Ibov)
+p3<-10000*log(x15$Ewz)
+
+
+ECM<-p2-1.26749*p1-1.140902*p3
+
+dp1<-diff(p1);colnames(dp1)<-"C"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"EWZ1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),Lag(dp3,6), EMCt)
+
+colnames(ob)<-c("C","C1","C2","C3","C4","C5","C6",
+                "Ibov1","Ibov2","Ibov3","Ibov4","Ibov5","Ibov6",
+                "EWZ1","EWZ2","EWZ3","EWZ4","EWZ5","EWZ6" ,"EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$C))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$C1, Ob$C2,Ob$C3, Ob$C4,Ob$C5, Ob$C6,
+          Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,Ob$Ibov5,Ob$Ibov6,
+          Ob$EWZ1,Ob$EWZ2, Ob$EWZ3,Ob$EWZ4, Ob$EWZ5,Ob$EWZ6, Ob$EMCt1)  #20
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,20,T)) #20
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(20) # mmatriz da relação entre os alphas
+Rt <- diag(20)   #matriz de relação dos erros
+Qt <- matrix(0,20,20) #Matriz de covariancias dos alphas
+Qt[20,20]<-NA
+Qt
+
+summary(KfAllBR_5)
+
+
+
+
+#              constante, 
+#              ca1,ca2,ca3,ca4,ca5,ca6, 
+#               ibov1,ibov2,ibov3,ibov4,ibov5,ibov6,
+#               ewz1,ewz2, ewz3,ewz4, ewz5,ewz6,
+#                        ECM
+
+a1 <- matrix(c(-84.3369,
+               -0.0239,-0.0025,-0.0004, -0.0050,-0.0062,0.0008,
+               -0.0031,-0.0015,0.0042,-0.0002,0.0031,0.0073,
+               -0.0097,-0.0003,-0.0046, -0.0012,-0.0065,-0.0018,
+               0.0015), 20, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 20, 20) #Parte não difusa de a1
+
+P1d<-matrix(0,20,20)
+
+P1d[20,20]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$C ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 20+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 20])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 20])
+
+
+
+#Alpha3 BR 5 minutos todo
+
+a3BR5a<-y.SS.KFS$alphahat[,20]
+
+
+
+
+
+A_BR_5<-matrix(c(a1BR5a,a2BR5a,a3BR5a), ncol = 3)
+
+
+
+
+Ao_5_BR<-matrix(cbind(
+  apply(A_BR_5, MARGIN = 1, FUN = csDin1),
+  apply(A_BR_5, MARGIN = 1, FUN = csDin2),
+  apply(A_BR_5, MARGIN = 1, FUN = csDin3)
+),
+ncol=3)
+
+
+par(mfrow=c(3,1))
+plot(100*ts(Ao_5_BR[,1]), main="", xlab="Time", ylab="Ibov - 5 Minutes", col="red")
+plot(100*ts(Ao_5_BR[,2]), main="", xlab="Time", ylab="EWZ - 5 Minutes", col="blue")
+plot(100*ts(Ao_5_BR[,3]), main="", xlab="Time", ylab="Exchange rate - 5 Minutes", col="green")
+
+
+summary(Ao_5_BR[,3])*100
+
+sd(Ao_5_BR[,3])*100
+
+
+#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#CP para o Ibov     5minBRse10primeiros
+
+
+#Cibov5<-abs(a2BR5a)/(abs(a2BR5a)+abs(a1BR5a))
+
+#Cibov5<-Cibov5[-c(1:10)]
+
+#par(mfrow=c(2,1))
+
+#plot(Cibov5)
+#legend("topleft", c("Price Discovery Dynamic Contribution for the Ibovespa 5 Minutes"), col=c("black"), lwd=2, cex=0.7, bty="n")
+
+#Cewz5<-1-Cibov5
+
+#plot(Cewz5)
+#legend("topleft", c("Price Discovery Dynamic Contribution for the EWZ 5 Minutes"), col=c("black"), lwd=2, cex=0.7, bty="n")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#10 minutes
+
+
+KfAllBR_10<-VECM(10000*log(x110), 6, r=1, estim="ML")
+
+
+summary(KfAllBR_10)
+
+p1<-10000*log(x110$Ibov)
+p2<-10000*log(x110$Ewz)
+p3<-10000*log(x110$Ca)
+
+
+ECM<-p1-1.129875*p2-1.255325*p3
+
+dp1<-diff(p1);colnames(dp1)<-"Ibov"
+dp2<-diff(p2);colnames(dp2)<-"EWZ1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),Lag(dp3,6), EMCt)
+
+colnames(ob)<-c("Ibov","Ibov1","Ibov2","Ibov3","Ibov4","Ibov5","Ibov6",
+                "EWZ1","EWZ2","EWZ3","EWZ4","EWZ5","EWZ6",
+                "C1","C2", "C3","C4", "C5","C6","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$Ibov))
+
+Ar<-rbind(cons, Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,Ob$Ibov5,Ob$Ibov6,
+          Ob$EWZ1,Ob$EWZ2,Ob$EWZ3,Ob$EWZ4,Ob$EWZ5,Ob$EWZ6,
+          Ob$C1, Ob$C2,Ob$C3, Ob$C4,Ob$C5, Ob$C6, Ob$EMCt1) # 20
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,20,T)) #20
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(20) # mmatriz da relação entre os alphas
+Rt <- diag(20)   #matriz de relação dos erros
+Qt <- matrix(0, 20,20) #Matriz de covariancias dos alphas
+Qt[20,20]<-NA
+Qt
+
+
+#              constante, ibov1,ibov2,ibov3,ibov4,ibov5,ibov6, 
+#                         ewz1,ewz2, ewz3,ewz4, ewz5,ewz6,
+#                          ca1,ca2,ca3,ca4,ca5,ca6, ECM
+
+
+summary(KfAllBR_10)
+
+a1 <- matrix(c(248.2325,
+               -0.0271,0.0016,-0.0080,-0.0167,-0.0346, -0.0310,
+               0.1158, 0.0297,0.0197,0.0276,0.0334,0.1504,
+               -0.1095,0.0119,0.0217, 0.0112,-0.0086,0.1097,
+               -0.0045), 20, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 20, 20) #Parte não difusa de a1
+
+P1d<-matrix(0,20,20)
+
+P1d[20,20]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$Ibov ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood  #20+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 20])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 20])
+
+
+
+#Alpha1 BR 10 minutos  covid 
+
+a1BR10a<-y.SS.KFS$alphahat[,20]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+summary(KfAllBR_10)
+
+p1<-10000*log(x110$Ewz)
+p2<-10000*log(x110$Ibov)
+p3<-10000*log(x110$Ca)
+
+
+ECM<-p2 -1.129875*p1-1.255325*p3
+
+dp1<-diff(p1);colnames(dp1)<-"EWZ"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),Lag(dp3,6), EMCt)
+
+colnames(ob)<-c("EWZ","EWZ1","EWZ2","EWZ3","EWZ4","EWZ5","EWZ6",
+                "Ibov1","Ibov2","Ibov3","Ibov4","Ibov5","Ibov6",
+                "C1","C2","C3","C4","C5","C6","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$EWZ))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$EWZ1,Ob$EWZ2, Ob$EWZ3,Ob$EWZ4, Ob$EWZ5,Ob$EWZ6,
+          Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,Ob$Ibov5,Ob$Ibov6,
+          Ob$C1, Ob$C2,Ob$C3, Ob$C4,Ob$C5, Ob$C6, Ob$EMCt1)  #20
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,20,T)) #20
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(20) # mmatriz da relação entre os alphas
+Rt <- diag(20)   #matriz de relação dos erros
+Qt <- matrix(0,20,20) #Matriz de covariancias dos alphas
+Qt[20,20]<-NA
+Qt
+
+summary(KfAllBR_10)
+
+
+
+
+#              constante, 
+#               ewz1,ewz2, ewz3,ewz4, ewz5,ewz6,
+#               ibov1,ibov2,ibov3,ibov4,ibov5,ibov6,
+#               ca1,ca2,ca3,ca4,ca5,ca6,
+#                        ECM
+
+a1 <- matrix(c( -35.6486,
+                -0.0177,-0.0095,0.0069,0.0014,0.0157, -0.0044,
+                -0.0153,-0.0087,0.0155,-0.0007,-0.0144,-0.0080,
+                -0.0508,-0.0186,0.0297,-0.0128,0.0114,-0.0147,
+                0.0006), 20, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 20, 20) #Parte não difusa de a1
+
+P1d<-matrix(0,20,20)
+
+P1d[20,20]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$EWZ ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 20+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 20])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 20])
+
+
+
+#Alpha2 BR 10 minutos todo
+
+a2BR10a<-y.SS.KFS$alphahat[,20]
+
+
+
+
+#CAMBIO
+
+
+
+summary(KfAllBR_10)
+
+p1<-10000*log(x110$Ca)
+p2<-10000*log(x110$Ibov)
+p3<-10000*log(x110$Ewz)
+
+
+ECM<-p2-1.255325*p1-1.129875*p3
+
+dp1<-diff(p1);colnames(dp1)<-"C"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"EWZ1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),Lag(dp3,6), EMCt)
+
+colnames(ob)<-c("C","C1","C2","C3","C4","C5","C6",
+                "Ibov1","Ibov2","Ibov3","Ibov4","Ibov5","Ibov6",
+                "EWZ1","EWZ2","EWZ3","EWZ4","EWZ5","EWZ6","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$C))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$C1, Ob$C2,Ob$C3, Ob$C4,Ob$C5, Ob$C6, 
+          Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,Ob$Ibov5,Ob$Ibov6,
+          Ob$EWZ1,Ob$EWZ2, Ob$EWZ3,Ob$EWZ4, Ob$EWZ5,Ob$EWZ6, Ob$EMCt1)  #20
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,20,T)) #20
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(20) # mmatriz da relação entre os alphas
+Rt <- diag(20)   #matriz de relação dos erros
+Qt <- matrix(0,20,20) #Matriz de covariancias dos alphas
+Qt[20,20]<-NA
+Qt
+
+summary(KfAllBR_10)
+
+
+
+
+#              constante, 
+#               ca1,ca2,ca3,ca4,ca5,ca6,
+#               ibov1,ibov2,ibov3,ibov4,ibov5,ibov6,
+#               ewz1,ewz2, ewz3,ewz4, ewz5,ewz6,
+#                        ECM
+
+a1 <- matrix(c( -102.0148,
+                -0.0230,-0.0171,-0.0082,-0.0063,0.0027,-0.0608,
+                0.0023,0.0049,0.0146,0.0093,0.0295,0.0330,
+                -0.0102,-0.0094,-0.0079,-0.0184,-0.0185,-0.1031,
+                0.0018), 20, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 20, 20) #Parte não difusa de a1
+
+P1d<-matrix(0,20,20)
+
+P1d[20,20]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$C ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 20+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 20])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 20])
+
+
+
+#Alpha3 BR 10 minutos todo
+
+a3BR10a<-y.SS.KFS$alphahat[,20]
+
+
+
+
+A_BR_10<-matrix(c(a1BR10a,a2BR10a,a3BR10a), ncol = 3)
+
+
+
+
+Ao_10_BR<-matrix(cbind(
+  apply(A_BR_10, MARGIN = 1, FUN = csDin1),
+  apply(A_BR_10, MARGIN = 1, FUN = csDin2),
+  apply(A_BR_10, MARGIN = 1, FUN = csDin3)
+),
+ncol=3)
+
+
+par(mfrow=c(3,1))
+plot(100*ts(Ao_10_BR[,1]), main="", xlab="Time", ylab="Ibov - 10 Minutes", col="red")
+plot(100*ts(Ao_10_BR[,2]), main="", xlab="Time", ylab="EWZ - 10 Minutes", col="blue")
+plot(100*ts(Ao_10_BR[,3]), main="", xlab="Time", ylab="Exchange rate - 10 Minutes", col="green")
+
+
+summary(Ao_10_BR[,2])*100
+
+sd(Ao_10_BR[,2])*100
+
+
+#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#CP para o Ibov     5minBRse10primeiros
+
+
+#Cibov10<-abs(a2BR10a)/(abs(a2BR10a)+abs(a1BR10a))
+
+#Cibov10<-Cibov10[-c(1:10)]
+
+#par(mfrow=c(2,1))
+
+#plot(Cibov10)
+#legend("topleft", c("Price Discovery Dynamic Contribution for the Ibovespa 10 Minutes"), col=c("black"), lwd=2, cex=0.7, bty="n")
+
+#Cewz10<-1-Cibov10
+
+#plot(Cewz10)
+#legend("topleft", c("Price Discovery Dynamic Contribution for the EWZ 10 Minutes"), col=c("black"), lwd=2, cex=0.7, bty="n")
+
+
+#15 minutes
+
+
+KfAllBR_15<-VECM(1000000*log(x115), 8, r=1, estim="ML")
+
+
+summary(KfAllBR_15)
+
+p1<-10000*log(x115$Ibov)
+p2<-10000*log(x115$Ewz)
+p3<-10000*log(x115$Ca)
+
+
+ECM<-p1-1.125071*p2-1.250784*p3
+
+dp1<-diff(p1);colnames(dp1)<-"Ibov"
+dp2<-diff(p2);colnames(dp2)<-"EWZ1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4), EMCt)
+
+colnames(ob)<-c("Ibov","Ibov1","Ibov2","Ibov3","Ibov4",
+                "EWZ1","EWZ2","EWZ3","EWZ4",
+                "C1","C2","C3","C4","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$Ibov))
+
+Ar<-rbind(cons, Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,
+          Ob$EWZ1,Ob$EWZ2,Ob$EWZ3,Ob$EWZ4,
+          Ob$C1, Ob$C2, Ob$C3,Ob$C4, Ob$EMCt1)  #14
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,14,T)) #20
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(14) # mmatriz da relação entre os alphas
+Rt <- diag(14)   #matriz de relação dos erros
+Qt <- matrix(0, 14,14) #Matriz de covariancias dos alphas
+Qt[14,14]<-NA
+Qt
+
+
+#              constante, ibov1,ibov2, ibov3,ibov4,
+#                         ewz1,ewz2,ewz3, ewz4,
+#                          ca1,ca2,ca3, ca4, ECM
+
+
+summary(KfAllBR_15)
+
+a1 <- matrix(c(373.6026,
+               -0.0138,0.0089,-0.0490,-0.0520,
+               0.0565,0.0323,0.0538,0.1640,
+               -0.0131,0.0565,-0.0174,0.0988,
+               -0.0067 ), 14, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 14, 14) #Parte não difusa de a1
+
+P1d<-matrix(0,14,14)
+
+P1d[14,14]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$Ibov ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 14])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 14])
+
+
+
+#Alpha1 BR 15 minutos all
+
+a1BR15a<-y.SS.KFS$alphahat[,14]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+summary(KfAllBR_15)
+
+p1<-1000000*log(x115$Ewz)
+p2<-1000000*log(x115$Ibov)
+p3<-1000000*log(x115$Ca)
+
+
+ECM<-p2-1.105387*p1-1.23027*p3
+
+dp1<-diff(p1);colnames(dp1)<-"EWZ"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),Lag(dp1,7),Lag(dp1,8),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4), Lag(dp2,5),Lag(dp2,6),Lag(dp2,7),Lag(dp2,8),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3), Lag(dp3,4),Lag(dp3,5),Lag(dp3,6),Lag(dp3,7), Lag(dp3,8),
+          EMCt)
+
+colnames(ob)<-c("EWZ","EWZ1","EWZ2","EWZ3","EWZ4","EWZ5","EWZ6","EWZ7","EWZ8",
+                "Ibov1","Ibov2","Ibov3","Ibov4","Ibov5","Ibov6","Ibov7","Ibov8",
+                "C1","C2","C3","C4","C5","C6","C7","C8","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$EWZ))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$EWZ1,Ob$EWZ2,Ob$EWZ3,Ob$EWZ4,Ob$EWZ5,Ob$EWZ6,Ob$EWZ7,Ob$EWZ8,
+          Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,Ob$Ibov5,Ob$Ibov6,Ob$Ibov7,Ob$Ibov8,
+          Ob$C1, Ob$C2, Ob$C3,Ob$C4,Ob$C5, Ob$C6, Ob$C7,Ob$C8,
+          Ob$EMCt1)  #26
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,26,T)) #14
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(26) # mmatriz da relação entre os alphas
+Rt <- diag(26)   #matriz de relação dos erros
+Qt <- matrix(0, 26,26) #Matriz de covariancias dos alphas
+Qt[26,26]<-NA
+Qt
+
+summary(KfAllBR_15)
+
+
+
+#              constante, 
+#               ewz1,ewz2,ewz3, ewz4,
+#               ibov1,ibov2,ibov3,ibov4,
+#               ca1,ca2,ca3,ca4,
+#                        ECM
+
+a1 <- matrix(c(0,
+               -0.0290,-0.0039,0.0219,-0.0151,0.0170,-0.0070,0.0031,0.0064,
+               -0.0235,0.0471,-0.0337,-0.0264,-0.0108, 0.0101,-0.0216,-0.0027,
+               -0.0641,0.0515,-0.0164,-0.0003,0.0368,0.0136,-0.0107,0.0071,
+               0.00001), 26, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 26, 26) #Parte não difusa de a1
+
+P1d<-matrix(0,26,26)
+
+P1d[26,26]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$EWZ ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001,0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001,0.001, 0.001, 0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 26])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 26])
+
+
+
+#Alpha2 BR 15 minutos pre covid 
+
+a2BR15a<-y.SS.KFS$alphahat[,26]
+
+
+par(mfrow=c(1,1))
+plot.ts(a2BR15a)
+
+
+
+
+
+
+
+
+summary(KfAllBR_15)
+
+p1<-10000*log(x115$Ca)
+p2<-10000*log(x115$Ibov)
+p3<-10000*log(x115$Ewz)
+
+
+ECM<-p2-1.250784*p1-1.125071*p3
+
+dp1<-diff(p1);colnames(dp1)<-"C"
+dp2<-diff(p2);colnames(dp2)<-"Ibov1"
+dp3<-diff(p3);colnames(dp3)<-"EWZ1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3), Lag(dp3,4), EMCt)
+
+colnames(ob)<-c("C","C1","C2","C3","C4",
+                "Ibov1","Ibov2","Ibov3","Ibov4",
+                "EWZ1","EWZ2","EWZ3","EWZ4","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$C))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$C1, Ob$C2, Ob$C3,Ob$C4,
+          Ob$Ibov1,Ob$Ibov2,Ob$Ibov3,Ob$Ibov4,
+          Ob$EWZ1,Ob$EWZ2,Ob$EWZ3,Ob$EWZ4, Ob$EMCt1)  #14
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,14,T)) #14
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(14) # mmatriz da relação entre os alphas
+Rt <- diag(14)   #matriz de relação dos erros
+Qt <- matrix(0, 14,14) #Matriz de covariancias dos alphas
+Qt[14,14]<-NA
+Qt
+
+summary(KfAllBR_15)
+
+
+
+#              constante, 
+#               ca1,ca2,ca3,ca4,
+#               ibov1,ibov2,ibov3,ibov4,
+#               ewz1,ewz2,ewz3, ewz4
+#                        ECM
+
+a1 <- matrix(c( -147.5595,
+                -0.0355,-0.0135,-0.0093,-0.0495,
+                0.0093,0.0123, 0.0273,0.0527,
+                -0.0134,-0.0172,-0.0300,-0.1130,
+                0.0026), 14, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 14, 14) #Parte não difusa de a1
+
+P1d<-matrix(0,14,14)
+
+P1d[14,14]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$C ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 14])
+
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 14])
+
+
+
+#Alpha2 BR 15 minutos pre covid 
+
+a3BR15a<-y.SS.KFS$alphahat[,14]
+
+
+plot.ts(a3BR15a)
+
+
+
+A_BR_15<-matrix(c(a1BR15a,a2BR15a,a3BR15a), ncol = 3)
+
+
+
+
+Ao_15_BR<-matrix(cbind(
+  apply(A_BR_15, MARGIN = 1, FUN = csDin1),
+  apply(A_BR_15, MARGIN = 1, FUN = csDin2),
+  apply(A_BR_15, MARGIN = 1, FUN = csDin3)
+),
+ncol=3)
+
+
+par(mfrow=c(3,1))
+plot(100*ts(Ao_15_BR[,1]), main="", xlab="Time", ylab="Ibov - 15 Minutes", col="red")
+plot(100*ts(Ao_15_BR[,2]), main="", xlab="Time", ylab="EWZ - 15 Minutes", col="blue")
+plot(100*ts(Ao_15_BR[,3]), main="", xlab="Time", ylab="Exchange rate - 15 Minutes", col="green")
+
+summary(Ao_15_BR[,2])*100
+
+sd(Ao_15_BR[,2])*100
+
+### US Kalman Filter
+
+#USA Pre 5 min
+
+
+
+z<-cbind(log(y1p5$Sp),log(y1p5$Spxi),log(y1p5$Ca))
+library(vars)
+VARselect(na.omit(diff((z))), lag.max = 30)
+
+plot.xts(z)
+
+acf2(na.omit(diff(1000*(z$Ca))),20)
+
+
+
+coef(KfUS_5)[1,2]
+
+
+
+
+
+p1<-(z$Sp)*10000
+p2<-(z$Spxi)*10000
+p3<-(z$Ca)*10000
+
+VARselect(na.omit(diff(10000*(z))))
+
+
+KfUS_5<-VECM(10000*(z), 5, r=1, estim="ML") #5
+
+
+
+summary(KfUS_5)
+
+ECM<-p1-1.435472*p2+0.8354728*p3
+
+dp1<-diff(p1);colnames(dp1)<-"SP"
+dp2<-diff(p2);colnames(dp2)<-"SPXI1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,
+          Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5), 
+          EMCt)
+
+colnames(ob)<-c("SP","SP1","SP2","SP3","SP4","SP5",
+                "SPXI1","SPXI2","SPXI3","SPXI4","SPXI5",
+                "C1","C2","C3","C4","C5",
+                "EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$SP))
+
+Ar<-rbind(cons, 
+          Ob$SP1,Ob$SP2,Ob$SP3,Ob$SP4,Ob$SP5,
+          Ob$SPXI1,Ob$SPXI2,Ob$SPXI3,Ob$SPXI4,Ob$SPXI5,
+          Ob$C1, Ob$C2, Ob$C3, Ob$C4, Ob$C5,
+          Ob$EMCt1)  #17
+
+
+
+
+Zt<-array(Ar, dim=c(1,17,T)) #11
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(17) # mmatriz da relação entre os alphas
+Rt <- diag(17)   #matriz de relação dos erros
+Qt <- matrix(0, 17,17) #Matriz de covariancias dos alphas
+Qt[17,17]<-NA
+Qt
+
+summary(KfUS_5)
+#              "SP","SP1","SP2","SP3","SP4","SP5",
+#              "SPXI1","SPXI2","SPXI3","SPXI4","SPXI5",
+#              "C1","C2","C3","C4","C5",
+#              "EMCt1"
+
+a1 <- matrix(c(57.3681,
+               0.0357,0.0400,0.0447,0.0107,0.0129,
+               -0.0594,-0.0447,-0.0485,-0.0377,-0.0279,
+               0.0232,-0.0047,0.0065, 0.0213,-0.0071,
+               -0.0343), 17, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 17, 17) #Parte não difusa de a1
+
+P1d<-matrix(0,17,17)
+
+P1d[17,17]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$SP ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+# extract filtered and smoothed alpha and betta
+alpha.KFS <- ts( cbind(y.SS.KFS$a[,17], y.SS.KFS$alphahat[,17]) )[-c(1:10)]
+
+betta.KFS <- ts( cbind(y.SS.KFS$a[,17], y.SS.KFS$alphahat[,17]), start=c(1981,4), frequency=12)
+
+par(mfrow=c(3,1), mar=c(4,4,2,1))
+
+
+# plot filtered and smoothed state alpha and betta
+plot.ts(abs(y.SS.KFS$a[,11]), plot.type="single", xlab="",ylab="Alpha", col=c("blue","red"), lwd=2)
+legend("topright", c("filtered","smoothed"), col=c("blue","red"), lwd=2, cex=0.7, bty="n")
+lines(abs(y.SS.KFS$alphahat[,11]), col="red")
+
+# plot smoothed state alpha and betta
+plot.ts(abs(y.SS.KFS$alphahat[,17]), plot.type="single", xlab="",ylab="Alpha", col="red", lwd=2)
+
+
+
+
+
+legend("topright", "smoothed", col="red", lwd=2, cex=0.7, bty="n")
+plot.ts(betta.KFS[,3], plot.type="single", xlab="",ylab="Beta", col="red", lwd=2)
+legend("topright", "smoothed", col="red", lwd=2, cex=0.7, bty="n")
+
+#KF filtered alpha, beta
+mean(y.SS.KFS$a[, 11])
+mean(y.SS.KFS$a[, 2])
+
+#KF smoothed alpha, beta
+mean(y.SS.KFS$alphahat[, 1])
+mean(y.SS.KFS$alphahat[, 2])
+
+
+#Alpha1 us 5 minutos pre covid 
+
+a1US5p<-y.SS.KFS$alphahat[,17]
+
+plot.ts(a1US5p)
+
+
+##
+
+
+
+
+
+summary(KfUS_5)
+
+p1<-z$Spxi*10000
+p2<-z$Sp*10000
+p3<-z$Ca*10000
+
+
+ECM<-p2-1.435472*p1+0.8354728*p3
+
+dp1<-diff(p1);colnames(dp1)<-"SPXI"
+dp2<-diff(p2);colnames(dp2)<-"SP1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5), EMCt)
+
+colnames(ob)<-c("SPXI","SPXI1","SPXI2","SPXI3","SPXI4","SPXI5",
+                "SP1","SP2","SP3","SP4","SP5",
+                "C1","C2","C3","C4","C5",
+                "EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$SPXI))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$SPXI1,Ob$SPXI2,Ob$SPXI3,Ob$SPXI4,Ob$SPXI5,
+          Ob$SP1,Ob$SP2,Ob$SP3,Ob$SP4,Ob$SP5,
+          Ob$C1, Ob$C2, Ob$C3, Ob$C4, Ob$C5, 
+          Ob$EMCt1)  #17
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,17,T)) #17
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(17) # mmatriz da relação entre os alphas
+Rt <- diag(17)   #matriz de relação dos erros
+Qt <- matrix(0, 17,17) #Matriz de covariancias dos alphas
+Qt[17,17]<-NA
+Qt
+
+summary(KfUS_5)
+#              constante, spxi1,spxi2,spxi3,spxi4,spxi5 
+#                         Sp1,sp2,sp3,sp4,sp5
+#                          ca1,ca2,ca3, ca4,ca5,ca6,
+#                           ECM
+
+a1 <- matrix(c(-165.7181,
+               -0.2048,-0.1017,-0.1141,-0.0817,-0.0796,
+               0.0814,0.0121,0.0723,0.0759,-0.0064,
+               0.0429,-0.0073,0.0616,0.0618,0.0406,
+               0.1008), 17, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 17, 17) #Parte não difusa de a1
+
+P1d<-matrix(0,17,17)
+
+P1d[17,17]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$SPXI ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+#Alpha2 US 5 minutos pre covid 
+
+a2US5p<-y.SS.KFS$alphahat[,17]
+
+
+plot.ts(a2US5p)
+
+
+
+summary(KfUS_5)
+
+p1<-z$Ca*10000
+p2<-z$Sp*10000
+p3<-z$Spxi*10000
+
+
+ECM<-p2-1.435472*p3+0.8354728*p1
+
+dp1<-diff(p1);colnames(dp1)<-"C"
+dp2<-diff(p2);colnames(dp2)<-"SP1"
+dp3<-diff(p3);colnames(dp3)<-"SPXI1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5), EMCt)
+
+colnames(ob)<-c("C","C1","C2","C3","C4","C5",
+                "SP1","SP2","SP3","SP4","SP5",
+                "SPXI1","SPXI2","SPXI3","SPXI4","SPXI5",
+                "EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$C))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$C1, Ob$C2, Ob$C3, Ob$C4, Ob$C5,
+          Ob$SP1,Ob$SP2,Ob$SP3,Ob$SP4,Ob$SP5,
+          Ob$SPXI1,Ob$SPXI2,Ob$SPXI3,Ob$SPXI4,Ob$SPXI5,
+          Ob$EMCt1)  #17
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,17,T)) #17
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações
+Tt <- diag(17) # mmatriz da relação entre os alphas
+Rt <- diag(17)   #matriz de relação dos erros
+Qt <- matrix(0, 17,17) #Matriz de covariancias dos alphas
+Qt[17,17]<-NA
+Qt
+
+summary(KfUS_5)
+#              constante, ca1,ca2,ca3, ca4,ca5,ca6,
+#                         Sp1,sp2,sp3,sp4,sp5,
+#                          spxi1,spxi2,spxi3,spxi4,spxi5 ,
+#                           ECM
+
+a1 <- matrix(c(27.7498,
+               -0.0212,-0.0520, -0.0007,-0.0098,-0.0360,
+               -0.0318, -0.0260,0.0021,0.0016,-0.0099,
+               -0.0004, 0.0071,0.0173,0.0054,-0.0059,
+               -0.0158), 17, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 17, 17) #Parte não difusa de a1
+
+P1d<-matrix(0,17,17)
+
+P1d[17,17]<-1
+
+P1inf <- P1d # Parte difusa de a1
+
+library(KFAS)
+# define state-space CAPM model
+y.SS <- SSModel(Ob$C ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+#Alpha2 US 5 minutos pre covid 
+
+a3US5p<-y.SS.KFS$alphahat[,17]
+
+
+plot.ts(a3US5p)
+
+
+
+
+
+B_US_5p<-matrix(c(a1US5p,a2US5p,a3US5p), ncol = 3)
+
+
+
+
+Bo_5p_US<-matrix(cbind(
+  apply(B_US_5p, MARGIN = 1, FUN = csDin1),
+  apply(B_US_5p, MARGIN = 1, FUN = csDin2),
+  apply(B_US_5p, MARGIN = 1, FUN = csDin3)
+),
+ncol=3)
+
+
+par(mfrow=c(3,1))
+plot(100*ts(Bo_5p_US[,1]), main="", xlab="Time", ylab="S&P500 - 5 Minutes", col="red")
+plot(100*ts(Bo_5p_US[,2]), main="", xlab="Time", ylab="SPXI11 - 5 Minutes", col="blue")
+plot(100*ts(Bo_5p_US[,3]), main="", xlab="Time", ylab="Exchange rate - 5 Minutes", col="green")
+
+
+
+
+summary(Bo_5p_US[,3])*100
+
+sd(Bo_5p_US[,3])*100
+
+
+
+
+
+#USA Pre 10 min 
+z<-cbind(log(y1p10$Sp),log(y1p10$Spxi),log(y1p10$Ca))
+
+plot.xts(z)
+
+VARselect(na.omit(diff(10000*z)))
+
+KfUS_10<-VECM(10000*(z), 4, r=1, estim="ML")
+
+
+summary(KfUS_10)
+
+p1<-(z$Sp)*10000
+p2<-(z$Spxi)*10000
+p3<-(z$Ca)*10000
+
+
+ECM<-p1-1.437459*p2+0.8356779*p3  
+
+dp1<-diff(p1);colnames(dp1)<-"SP"
+dp2<-diff(p2);colnames(dp2)<-"SPXI1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4), EMCt)
+
+colnames(ob)<-c("SP","SP1","SP2","SP3","SP4",
+                "SPXI1","SPXI2","SPXI3","SPXI4",
+                "C1","C2","C3","C4","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$SP))
+
+Ar<-rbind(cons, Ob$SP1,Ob$SP2,Ob$SP3,Ob$SP4,
+          Ob$SPXI1,Ob$SPXI2,Ob$SPXI3,Ob$SPXI4,
+          Ob$C1, Ob$C2, Ob$C3, Ob$C4, Ob$EMCt1)  #14
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,14,T)) #14
+
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações. Variancia dos erros desconhecida, estimar
+Tt <- diag(14) # mmatriz da relação entre os alphas Independentes entre si. em funcao de seus passados
+Rt <- matrix(c(rep(0,13),1),14,1)        #matriz de relação dos erros e independente
+
+
+Qt <- matrix(NA) #Matriz de covariancias dos alphas
+
+
+
+
+#              constante, 
+#              sp1,sp2, sp3,sp4,sp5,
+#              spxi1,spxi2,spxi3,spxi4,spxi5,  
+#              ca1,ca2,ca3,ca4,ca5 
+#              ECM
+
+
+summary(KfUS_10)
+
+a1 <- matrix(c(76.1158,
+             0.0289,0.0827,0.0092,-0.0103,
+             -0.0750,-0.0500,-0.0403,-0.0101,
+             0.0310,0.0017,0.0031,0.0060,
+             -0.0458), 14,1) #Chutes iniciais
+
+
+P1 <- matrix(0, 14, 14) #Parte não difusa de a1
+
+#Parte difusa de 
+
+P1inf <- diag(14) # Parte difusa de a1
+
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$SP ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 14+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+a1US10p<-y.SS.KFS$alphahat[,14]
+
+
+
+
+plot.ts(a1US10p)
+
+
+
+
+
+
+
+
+
+summary(KfUS_10)
+
+p1<-(z$Spxi)*10000
+p2<-(z$Sp)*10000
+p3<-(z$Ca)*10000
+
+
+ECM<-p2-1.437459*p1+0.8356779*p3
+
+dp1<-diff(p1);colnames(dp1)<-"SPXI"
+dp2<-diff(p2);colnames(dp2)<-"SP1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4), EMCt)
+
+colnames(ob)<-c("SPXI","SPXI1","SPXI2","SPXI3","SPXI4",
+                "SP1","SP2","SP3","SP4",
+                "C1","C2","C3","C4",
+                "EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$SPXI))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$SPXI1,Ob$SPXI2,Ob$SPXI3,Ob$SPXI4,
+          Ob$SP1,Ob$SP2,Ob$SP3,Ob$SP4,
+          Ob$C1, Ob$C2, Ob$C3, Ob$C4, 
+          Ob$EMCt1)  #14
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,14,T)) #14
+
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações. Variancia dos erros desconhecida, estimar
+Tt <- diag(14) # mmatriz da relação entre os alphas Independentes entre si. em funcao de seus passados
+
+
+Rt <- matrix(c(rep(0,13),1),14,1)        #matriz de relação dos erros e independente
+
+
+Qt <- matrix(NA) #Matriz de covariancias dos alphas
+
+
+
+#         constante, 
+#         SPXI1,SPXI2,SPXI3,SPXI4,SPXI5,
+#         SP1,SP2, SP3,SP4, SP5, 
+#         ca1,ca2,ca3,ca4,ca5,  
+#         ECM
+
+summary(KfUS_10)
+
+
+a1 <- matrix(c(-239.9387,
+               -0.1923,-0.0987,-0.1195,-0.0637, 
+               0.0284,0.0296,0.0162, 0.0512,
+               0.0102,0.0152,0.0768,0.0097,
+               0.1469 ), 14, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 14, 14) #Parte não difusa de a1
+
+#Parte difusa de 
+
+P1inf <- diag(14) # Parte difusa de a1
+
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$SPXI ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 14+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+#Alpha2 US 10 minutos pre covid 
+
+a2US10p<-y.SS.KFS$alphahat[,14]
+
+
+
+
+summary(KfUS_10)
+
+p1<-(z$Ca)*10000
+p2<-(z$Sp)*10000
+p3<-(z$Spxi)*10000
+
+
+ECM<-p2-1.437459*p3+0.8356779*p1
+
+dp1<-diff(p1);colnames(dp1)<-"C"
+dp2<-diff(p2);colnames(dp2)<-"SP1"
+dp3<-diff(p3);colnames(dp3)<-"SPXI1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4), EMCt)
+
+colnames(ob)<-c("C","C1","C2","C3","C4",
+                "SP1","SP2","SP3","SP4",
+                "SPXI1","SPXI2","SPXI3","SPXI4",
+                "EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$C))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$C1, Ob$C2, Ob$C3, Ob$C4,
+          Ob$SP1,Ob$SP2,Ob$SP3,Ob$SP4,
+          Ob$SPXI1,Ob$SPXI2,Ob$SPXI3,Ob$SPXI4,
+          Ob$EMCt1)  #14
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,14,T)) #14
+
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações. Variancia dos erros desconhecida, estimar
+Tt <- diag(14) # mmatriz da relação entre os alphas Independentes entre si. em funcao de seus passados
+
+
+Rt <- matrix(c(rep(0,13),1),14,1)        #matriz de relação dos erros e independente
+
+
+Qt <- matrix(NA) #Matriz de covariancias dos alphas
+
+
+
+#         constante, 
+#         ca1,ca2,ca3,ca4,ca5, 
+#         SP1,SP2, SP3,SP4, SP5, 
+#         SPXI1,SPXI2,SPXI3,SPXI4,SPXI5, 
+#         ECM
+
+summary(KfUS_10)
+
+
+a1 <- matrix(c(37.5424,
+               -0.0185,-0.0325,-0.0165,-0.0044,
+               -0.0385,-0.0213,-0.0157,0.0149,
+               -0.0029,0.0165,0.0135,0.0072,
+               -0.0215), 14, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 14, 14) #Parte não difusa de a1
+
+#Parte difusa de 
+
+P1inf <- diag(14) # Parte difusa de a1
+
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$C ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 14+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+#Alpha3 US 10 minutos pre covid 
+
+a3US10p<-y.SS.KFS$alphahat[,14]
+
+
+
+
+
+B_US_10p<-matrix(c(a1US10p,a2US10p,a3US10p), ncol = 3)
+
+
+
+
+Bo_10p_US<-matrix(cbind(
+  apply(B_US_10p, MARGIN = 1, FUN = csDin1),
+  apply(B_US_10p, MARGIN = 1, FUN = csDin2),
+  apply(B_US_10p, MARGIN = 1, FUN = csDin3)
+),
+ncol=3)
+
+
+par(mfrow=c(3,1))
+plot(100*ts(Bo_10p_US[,1]), main="", xlab="Time", ylab="S&P500 - 10 Minutes", col="red")
+plot(100*ts(Bo_10p_US[,2]), main="", xlab="Time", ylab="SPXI11 - 10 Minutes", col="blue")
+plot(100*ts(Bo_10p_US[,3]), main="", xlab="Time", ylab="Exchange rate - 10 Minutes", col="green")
+
+
+#######################3
+
+summary(Bo_5p_US[,3])*100
+
+sd(Bo_5p_US[,3])*100
+
+#
+
+
+#USA Pre 15 min 
+
+z<-cbind(log(y1p15$Sp),log(y1p15$Spxi),log(y1p15$Ca))
+
+plot.xts(z)
+
+VARselect(na.omit(diff(10000*z)))
+
+KfUS_15<-VECM(10000*(z), 4, r=1, estim="ML")
+
+
+summary(KfUS_15)
+
+p1<-(z$Sp)*10000
+p2<-(z$Spxi)*10000
+p3<-(z$Ca)*10000
+
+
+ECM<-p1-1.439613*p2+0.8357608*p3  
+
+dp1<-diff(p1);colnames(dp1)<-"SP"
+dp2<-diff(p2);colnames(dp2)<-"SPXI1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4), EMCt)
+
+colnames(ob)<-c("SP","SP1","SP2","SP3","SP4",
+                "SPXI1","SPXI2","SPXI3","SPXI4",
+                "C1","C2","C3","C4","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$SP))
+
+Ar<-rbind(cons, Ob$SP1,Ob$SP2,Ob$SP3,Ob$SP4,
+          Ob$SPXI1,Ob$SPXI2,Ob$SPXI3,Ob$SPXI4,
+          Ob$C1, Ob$C2, Ob$C3, Ob$C4, Ob$EMCt1)  #14
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,14,T)) #14
+
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações. Variancia dos erros desconhecida, estimar
+Tt <- diag(14) # mmatriz da relação entre os alphas Independentes entre si. em funcao de seus passados
+Rt <- matrix(c(rep(0,13),1),14,1)        #matriz de relação dos erros e independente
+
+
+Qt <- matrix(NA) #Matriz de covariancias dos alphas
+
+
+
+
+#              constante, 
+#              sp1,sp2, sp3,sp4,sp5,
+#              spxi1,spxi2,spxi3,spxi4,spxi5,  
+#              ca1,ca2,ca3,ca4,ca5 
+#              ECM
+
+
+summary(KfUS_15)
+
+a1 <- matrix(c(78.2096,
+               0.0950,0.0434,-0.0682,-0.0148,
+               -0.0814,-0.0328,-0.0067,-0.0070,
+               0.0375,-0.0245,-0.0069,0.0061,
+               -0.0472), 14,1) #Chutes iniciais
+
+
+P1 <- matrix(0, 14, 14) #Parte não difusa de a1
+
+#Parte difusa de 
+
+P1inf <- diag(14) # Parte difusa de a1
+
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$SP ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 14+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+a1US15p<-y.SS.KFS$alphahat[,14]
+
+plot.ts(a1US15p)
+
+
+
+
+
+
+
+
+
+
+summary(KfUS_15)
+
+p1<-(z$Spxi)*10000
+p2<-(z$Sp)*10000
+p3<-(z$Ca)*10000
+
+
+ECM<-p2-1.439613*p1+0.8357608*p3
+
+dp1<-diff(p1);colnames(dp1)<-"SPXI"
+dp2<-diff(p2);colnames(dp2)<-"SP1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4), EMCt)
+
+colnames(ob)<-c("SPXI","SPXI1","SPXI2","SPXI3","SPXI4",
+                "SP1","SP2","SP3","SP4",
+                "C1","C2","C3","C4",
+                "EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$SPXI))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$SPXI1,Ob$SPXI2,Ob$SPXI3,Ob$SPXI4,
+          Ob$SP1,Ob$SP2,Ob$SP3,Ob$SP4,
+          Ob$C1, Ob$C2, Ob$C3, Ob$C4, 
+          Ob$EMCt1)  #14
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,14,T)) #14
+
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações. Variancia dos erros desconhecida, estimar
+Tt <- diag(14) # mmatriz da relação entre os alphas Independentes entre si. em funcao de seus passados
+
+
+Rt <- matrix(c(rep(0,13),1),14,1)        #matriz de relação dos erros e independente
+
+
+Qt <- matrix(NA) #Matriz de covariancias dos alphas
+
+
+
+#         constante, 
+#         SPXI1,SPXI2,SPXI3,SPXI4,SPXI5,
+#         SP1,SP2, SP3,SP4, SP5, 
+#         ca1,ca2,ca3,ca4,ca5,  
+#         ECM
+
+summary(KfUS_15)
+
+
+a1 <- matrix(c(-273.5098,
+               -0.1723,-0.0657,-0.1025,-0.0403,
+               0.0074,0.0388,0.0205,0.0333,
+               0.0030,0.0038,0.0330,0.0210,
+               0.1685 ), 14, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 14, 14) #Parte não difusa de a1
+
+#Parte difusa de 
+
+P1inf <- diag(14) # Parte difusa de a1
+
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$SPXI ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 14+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+#Alpha2 US 10 minutos pre covid 
+
+a2US15p<-y.SS.KFS$alphahat[,14]
+
+
+
+
+
+summary(KfUS_15)
+
+p1<-(z$Ca)*10000
+p2<-(z$Sp)*10000
+p3<-(z$Spxi)*10000
+
+
+ECM<-p2-1.439613 *p3+0.8357608*p1
+
+dp1<-diff(p1);colnames(dp1)<-"C"
+dp2<-diff(p2);colnames(dp2)<-"SP1"
+dp3<-diff(p3);colnames(dp3)<-"SPXI1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),Lag(dp1,3),Lag(dp1,4),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4), EMCt)
+
+colnames(ob)<-c("C","C1","C2","C3","C4",
+                "SP1","SP2","SP3","SP4",
+                "SPXI1","SPXI2","SPXI3","SPXI4",
+                "EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$C))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$C1, Ob$C2, Ob$C3, Ob$C4,
+          Ob$SP1,Ob$SP2,Ob$SP3,Ob$SP4,
+          Ob$SPXI1,Ob$SPXI2,Ob$SPXI3,Ob$SPXI4,
+          Ob$EMCt1)  #14
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,14,T)) #14
+
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações. Variancia dos erros desconhecida, estimar
+Tt <- diag(14) # mmatriz da relação entre os alphas Independentes entre si. em funcao de seus passados
+
+
+Rt <- matrix(c(rep(0,13),1),14,1)        #matriz de relação dos erros e independente
+
+
+Qt <- matrix(NA) #Matriz de covariancias dos alphas
+
+
+
+#         constante, 
+#         ca1,ca2,ca3,ca4,ca5, 
+#         SP1,SP2, SP3,SP4, SP5, 
+#         SPXI1,SPXI2,SPXI3,SPXI4,SPXI5, 
+#         ECM
+
+summary(KfUS_15)
+
+
+a1 <- matrix(c(37.5424,
+               -0.0185,-0.0325,-0.0165,-0.0044,
+               -0.0385,-0.0213,-0.0157,0.0149,
+               -0.0029,0.0165,0.0135,0.0072,
+               -0.0215), 14, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 14, 14) #Parte não difusa de a1
+
+#Parte difusa de 
+
+P1inf <- diag(14) # Parte difusa de a1
+
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$C ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 14+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+#Alpha3 US 10 minutos pre covid 
+
+a3US15p<-y.SS.KFS$alphahat[,14]
+
+
+
+
+
+B_US_15p<-matrix(c(a1US15p,a2US15p,a3US15p), ncol = 3)
+
+
+
+
+Bo_15p_US<-matrix(cbind(
+  apply(B_US_15p, MARGIN = 1, FUN = csDin1),
+  apply(B_US_15p, MARGIN = 1, FUN = csDin2),
+  apply(B_US_15p, MARGIN = 1, FUN = csDin3)
+),
+ncol=3)
+
+
+par(mfrow=c(3,1))
+plot(100*ts(Bo_15p_US[,1]), main="", xlab="Time", ylab="S&P500 - 15 Minutes", col="red")
+plot(100*ts(Bo_15p_US[,2]), main="", xlab="Time", ylab="SPXI11 - 15 Minutes", col="blue")
+plot(100*ts(Bo_15p_US[,3]), main="", xlab="Time", ylab="Exchange rate - 15 Minutes", col="green")
+
+
+#######################3
+
+summary(Bo_15p_US[,3])*100
+
+sd(Bo_15p_US[,3])*100
+
+#
+
+
+
+
+z<-cbind(log(y1c5$Sp),log(y1c5$Spxi),log(y1c5$Ca))
+
+par(mfrow=c(1,1))
+plot.xts(z)
+
+VARselect(na.omit(diff(10000*z)))
+
+KfUS_5c<-VECM(10000*(z), 2, r=1, estim="ML")
+
+
+summary(KfUS_5c)
+
+p1<-(z$Sp)*10000
+p2<-(z$Spxi)*10000
+p3<-(z$Ca)*10000
+
+
+ECM<-p1-1.17493*p2+0.4550895*p3  
+
+dp1<-diff(p1);colnames(dp1)<-"SP"
+dp2<-diff(p2);colnames(dp2)<-"SPXI1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),
+          Lag(dp2,1),Lag(dp2,2),
+          Lag(dp3,1),Lag(dp3,2), EMCt)
+
+colnames(ob)<-c("SP","SP1","SP2",
+                "SPXI1","SPXI2",
+                "C1","C2","EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$SP))
+
+Ar<-rbind(cons, Ob$SP1,Ob$SP2,
+          Ob$SPXI1,Ob$SPXI2,
+          Ob$C1, Ob$C2, Ob$EMCt1)  #8
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,8,T)) #8
+
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações. Variancia dos erros desconhecida, estimar
+Tt <- diag(8) # mmatriz da relação entre os alphas Independentes entre si. em funcao de seus passados
+Rt <- matrix(c(rep(0,7),1),8,1)        #matriz de relação dos erros e independente
+
+
+Qt <- matrix(NA) #Matriz de covariancias dos alphas
+
+
+
+
+#              constante, 
+#              sp1,sp2, 
+#              spxi1,spxi2,
+#              ca1,ca2,
+#              ECM
+
+
+summary(KfUS_5c)
+
+a1 <- matrix(c( -1.4116,
+                -0.0026,0.0084,
+                0.0053,0.0102,
+                0.0006,-0.0032,
+                0.08), 8,1) #Chutes iniciais
+
+
+P1 <- matrix(0, 8, 8) #Parte não difusa de a1
+
+#Parte difusa de 
+
+P1inf <- diag(8) # Parte difusa de a1
+
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$SP ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 14+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+a1US5c<-y.SS.KFS$alphahat[,8]
+
+plot.ts(a1US5c)
+
+
+
+
+
+
+
+
+
+
+summary(KfUS_5c)
+
+p1<-(z$Spxi)*10000
+p2<-(z$Sp)*10000
+p3<-(z$Ca)*10000
+
+
+ECM<-p2-1.17493*p1+0.4550895*p3
+
+dp1<-diff(p1);colnames(dp1)<-"SPXI"
+dp2<-diff(p2);colnames(dp2)<-"SP1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),
+          Lag(dp2,1),Lag(dp2,2),
+          Lag(dp3,1),Lag(dp3,2), EMCt)
+
+colnames(ob)<-c("SPXI","SPXI1","SPXI2",
+                "SP1","SP2",
+                "C1","C2",
+                "EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$SPXI))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$SPXI1,Ob$SPXI2,
+          Ob$SP1,Ob$SP2,
+          Ob$C1, Ob$C2,  
+          Ob$EMCt1)  #8
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,8,T)) #14
+
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações. Variancia dos erros desconhecida, estimar
+Tt <- diag(8) # mmatriz da relação entre os alphas Independentes entre si. em funcao de seus passados
+
+
+Rt <- matrix(c(rep(0,7),1),8,1)        #matriz de relação dos erros e independente
+
+
+Qt <- matrix(NA) #Matriz de covariancias dos alphas
+
+
+
+#         constante, 
+#         SPXI1,SPXI2,
+#         SP1,SP2, 
+#         ca1,ca2,
+#         ECM
+
+summary(KfUS_5c)
+
+
+a1 <- matrix(c(-52.0760,
+               -0.1967,-0.0868,
+               0.0917,0.0085,
+               0.0586,0.0338,
+               0.0251), 8, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 8, 8) #Parte não difusa de a1
+
+#Parte difusa de 
+
+P1inf <- diag(8) # Parte difusa de a1
+
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$SPXI ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 14+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+#Alpha2 US 10 minutos pre covid 
+
+a2US5c<-y.SS.KFS$alphahat[,8]
+
+
+
+summary(KfUS_5c)
+
+p1<-(z$Ca)*10000
+p2<-(z$Sp)*10000
+p3<-(z$Spxi)*10000
+
+
+ECM<-p2-1.17493*p3+0.4550895*p1
+
+dp1<-diff(p1);colnames(dp1)<-"C"
+dp2<-diff(p2);colnames(dp2)<-"SP1"
+dp3<-diff(p3);colnames(dp3)<-"SPXI1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2),
+          Lag(dp2,1),Lag(dp2,2),
+          Lag(dp3,1),Lag(dp3,2),
+          EMCt)
+
+colnames(ob)<-c("C","C1","C2",
+                "SP1","SP2",
+                "SPXI1","SPXI2",
+                "EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$C))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$C1, Ob$C2,
+          Ob$SP1,Ob$SP2,
+          Ob$SPXI1,Ob$SPXI2,
+          Ob$EMCt1)  #8
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,8,T)) #8
+
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações. Variancia dos erros desconhecida, estimar
+Tt <- diag(8) # mmatriz da relação entre os alphas Independentes entre si. em funcao de seus passados
+
+
+Rt <- matrix(c(rep(0,7),1),8,1)        #matriz de relação dos erros e independente
+
+
+Qt <- matrix(NA) #Matriz de covariancias dos alphas
+
+
+
+#         constante, 
+#         ca1,ca2,
+#         SP1,SP2, 
+#         SPXI1,SPXI2, 
+#         ECM
+
+summary(KfUS_5c)
+
+
+a1 <- matrix(c(46.9286,
+               -0.0103,-0.0077,
+               0.0012,-0.0038,
+               0.0042,-0.0013,
+               -0.0226), 8, 1) #Chutes iniciais
+
+
+P1 <- matrix(0,8,8) #Parte não difusa de a1
+
+#Parte difusa de 
+
+P1inf <- diag(8) # Parte difusa de a1
+
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$C ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 14+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+#Alpha3 US 10 minutos pre covid 
+
+a3US5c<-y.SS.KFS$alphahat[,8]
+
+
+
+
+B_US_5c<-matrix(c(a1US5c,a2US5c,a3US5c), ncol = 3)
+
+
+
+
+Bo_5c_US<-matrix(cbind(
+  apply(B_US_5c, MARGIN = 1, FUN = csDin1),
+  apply(B_US_5c, MARGIN = 1, FUN = csDin2),
+  apply(B_US_5c, MARGIN = 1, FUN = csDin3)
+),
+ncol=3)
+
+
+par(mfrow=c(3,1))
+plot(100*ts(Bo_5c_US[,1]), main="", xlab="Time", ylab="S&P500 - 5 Minutes", col="red")
+plot(100*ts(Bo_5c_US[,2]), main="", xlab="Time", ylab="SPXI11 - 5 Minutes", col="blue")
+plot(100*ts(Bo_5c_US[,3]), main="", xlab="Time", ylab="Exchange rate - 5 Minutes", col="green")
+
+
+#######################3
+
+summary(Bo_5c_US[,3])*100
+
+sd(Bo_5c_US[,3])*100
+
+#USA Pos 10 min 
+
+
+
+KfUS_p10<-VECM(y1c10, 7, r=1, estim="ML")
+
+z<-cbind(log(y1c10$Sp),log(y1c10$Spxi),log(y1c10$Ca))
+
+par(mfrow=c(1,1))
+plot.xts(z)
+
+VARselect(na.omit(diff(10000*z)))
+
+KfUS_10c<-VECM(10000*(z), 7, r=1, estim="ML")
+
+
+summary(KfUS_10c)
+
+p1<-(z$Sp)*10000
+p2<-(z$Spxi)*10000
+p3<-(z$Ca)*10000
+
+
+ECM<-p1-1.17437*p2+0.4545313*p3  
+
+dp1<-diff(p1);colnames(dp1)<-"SP"
+dp2<-diff(p2);colnames(dp2)<-"SPXI1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2), Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),Lag(dp1,7),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),Lag(dp2,7),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),Lag(dp3,6),Lag(dp3,7),
+          EMCt)
+
+colnames(ob)<-c("SP","SP1","SP2","SP3","SP4","SP5","SP6","SP7",
+                "SPXI1","SPXI2","SPXI3","SPXI4","SPXI5","SPXI6","SPXI7",
+                "C1","C2","C3","C4","C5","C6","C7",
+                "EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$SP))
+
+Ar<-rbind(cons, Ob$SP1,Ob$SP2,Ob$SP3,Ob$SP4,Ob$SP5,Ob$SP6,Ob$SP7,
+          Ob$SPXI1,Ob$SPXI2,Ob$SPXI3,Ob$SPXI4,Ob$SPXI5,Ob$SPXI6,Ob$SPXI7,
+          Ob$C1, Ob$C2,Ob$C3, Ob$C4,Ob$C5, Ob$C6, Ob$C7, 
+          Ob$EMCt1)  #23
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,23,T)) #23
+
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações. Variancia dos erros desconhecida, estimar
+Tt <- diag(23) # mmatriz da relação entre os alphas Independentes entre si. em funcao de seus passados
+Rt <- matrix(c(rep(0,22),1),23,1)        #matriz de relação dos erros e independente
+
+
+Qt <- matrix(NA) #Matriz de covariancias dos alphas
+
+
+
+
+#              constante, 
+#              sp1,sp2, 
+#              spxi1,spxi2,
+#              ca1,ca2,
+#              ECM
+
+
+summary(KfUS_10c)
+
+a1 <- matrix(c( -1.3833,
+                0.0056,0.0024,0.0109,-0.0203,0.0080,0.0173,-0.0119,
+                0.0173,-0.0120,-0.0078,0.0022,-0.0043,-0.0034, -0.0023,
+                -0.0042,0.0019,0.0029,0.0011,-0.0003,-1.4e-05,0.0022,
+                0.08), 23,1) #Chutes iniciais
+
+
+P1 <- matrix(0, 23, 23) #Parte não difusa de a1
+
+#Parte difusa de 
+
+P1inf <- diag(23) # Parte difusa de a1
+
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$SP ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 14+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001,
+                                  0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+a1US10c<-y.SS.KFS$alphahat[,23]
+
+plot.ts(a1US10c)
+
+
+
+
+
+summary(KfUS_10c)
+
+p1<-(z$Spxi)*10000
+p2<-(z$Sp)*10000
+p3<-(z$Ca)*10000
+
+
+ECM<-p2-1.17437*p1+0.4545313*p3
+
+dp1<-diff(p1);colnames(dp1)<-"SPXI"
+dp2<-diff(p2);colnames(dp2)<-"SP1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2), Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),Lag(dp1,7),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),Lag(dp2,7),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),Lag(dp3,6),Lag(dp3,7),
+          EMCt)
+
+colnames(ob)<-c("SPXI","SPXI1","SPXI2","SPXI3","SPXI4","SPXI5","SPXI6","SPXI7",
+                "SP1","SP2","SP3","SP4","SP5","SP6","SP7",
+                "C1","C2","C3","C4","C5","C6","C7",
+                "EMCt1")
+
+
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$SPXI))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$SPXI1,Ob$SPXI2,Ob$SPXI3,Ob$SPXI4,Ob$SPXI5,Ob$SPXI6,Ob$SPXI7,
+          Ob$SP1,Ob$SP2,Ob$SP3,Ob$SP4,Ob$SP5,Ob$SP6,Ob$SP7,
+          Ob$C1, Ob$C2,Ob$C3, Ob$C4,Ob$C5, Ob$C6, Ob$C7,  
+          Ob$EMCt1)  #23
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,23,T)) #23
+
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações. Variancia dos erros desconhecida, estimar
+Tt <- diag(23) # mmatriz da relação entre os alphas Independentes entre si. em funcao de seus passados
+
+
+Rt <- matrix(c(rep(0,22),1),23,1)        #matriz de relação dos erros e independente
+
+
+Qt <- matrix(NA) #Matriz de covariancias dos alphas
+
+
+
+#         constante, 
+#         SPXI1,SPXI2,
+#         SP1,SP2, 
+#         ca1,ca2,
+#         ECM
+
+summary(KfUS_10c)
+
+
+a1 <- matrix(c(-54.7419,
+               -0.1975,-0.0711,-0.0590,-0.0201,-0.0352,-0.0422,-0.0209,
+               0.0816,0.0247,0.0377,0.0336,0.0608,0.0892,0.0579,
+               0.0646,0.0285,0.0208,0.0101,0.0206,0.0205,0.0056,
+               0.0264), 23, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 23, 23) #Parte não difusa de a1
+
+#Parte difusa de 
+
+P1inf <- diag(23) # Parte difusa de a1
+
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$SPXI ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 14+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001,
+                                  0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+#Alpha2 US 10 minutos pre covid 
+
+a2US10c<-y.SS.KFS$alphahat[,23]
+
+
+
+plot.ts(a2US10c)
+
+summary(KfUS_10c)
+
+p1<-(z$Ca)*10000
+p2<-(z$Sp)*10000
+p3<-(z$Spxi)*10000
+
+
+ECM<-p2-1.17437*p3+0.4545313*p1
+
+dp1<-diff(p1);colnames(dp1)<-"C"
+dp2<-diff(p2);colnames(dp2)<-"SP1"
+dp3<-diff(p3);colnames(dp3)<-"SPXI1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2), Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),Lag(dp1,6),Lag(dp1,7),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),Lag(dp2,6),Lag(dp2,7),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),Lag(dp3,6),Lag(dp3,7),
+          EMCt)
+
+colnames(ob)<-c("C","C1","C2","C3","C4","C5","C6","C7",
+                "SP1","SP2","SP3","SP4","SP5","SP6","SP7",
+                "SPXI1","SPXI2","SPXI3","SPXI4","SPXI5","SPXI6","SPXI7",
+                "EMCt1")
+
+
+      
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$C))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$C1, Ob$C2,Ob$C3, Ob$C4, Ob$C5, Ob$C6, Ob$C7,
+          Ob$SP1, Ob$SP2, Ob$SP3, Ob$SP4, Ob$SP5, Ob$SP6, Ob$SP7,
+          Ob$SPXI1,Ob$SPXI2, Ob$SPXI3, Ob$SPXI4, Ob$SPXI5, Ob$SPXI6, Ob$SPXI7,
+          Ob$EMCt1)  #23
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,23,T)) #23
+
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações. Variancia dos erros desconhecida, estimar
+Tt <- diag(23) # mmatriz da relação entre os alphas Independentes entre si. em funcao de seus passados
+Rt <- matrix(c(rep(0,22),1),23,1)        #matriz de relação dos erros e independente
+
+
+Qt <- matrix(NA) #Matriz de covariancias dos alphas
+
+
+
+#         constante, 
+#         ca1,ca2,
+#         SP1,SP2, 
+#         SPXI1,SPXI2, 
+#         ECM
+
+summary(KfUS_10c)
+
+
+a1 <- matrix(c(60.1605,
+               -0.0119,-0.0037,-0.0145,-0.0121, -0.0002,-0.0040,0.0006,
+               -0.0033,0.0084,0.0099,-0.0740,-0.0567,-0.1241,-0.0155,
+               0.0251,0.0053,0.0552,0.0622, 0.0456,0.0090,0.0087,
+               -0.0289), 23, 1) #Chutes iniciais
+
+
+P1 <- matrix(0,23,23) #Parte não difusa de a1
+
+#Parte difusa de 
+
+P1inf <- diag(23) # Parte difusa de a1
+
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$C ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 14+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001,
+                                  0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+#Alpha3 US 10 minutos pre covid 
+
+a3US10c<-y.SS.KFS$alphahat[,23]
+
+
+plot.ts(a3US10c)
+
+B_US_10c<-matrix(c(a1US10c,a2US10c,a3US10c), ncol = 3)
+
+
+
+
+Bo_10c_US<-matrix(cbind(
+  apply(B_US_10c, MARGIN = 1, FUN = csDin1),
+  apply(B_US_10c, MARGIN = 1, FUN = csDin2),
+  apply(B_US_10c, MARGIN = 1, FUN = csDin3)
+),
+ncol=3)
+
+
+par(mfrow=c(3,1))
+plot(100*ts(Bo_10c_US[,1]), main="", xlab="Time", ylab="S&P500 - 10 Minutes", col="red")
+plot(100*ts(Bo_10c_US[,2]), main="", xlab="Time", ylab="SPXI11 - 10 Minutes", col="blue")
+plot(100*ts(Bo_10c_US[,3]), main="", xlab="Time", ylab="Exchange rate - 10 Minutes", col="green")
+
+
+
+#######################3
+
+summary(Bo_10c_US[,3])*100
+
+sd(Bo_10c_US[,3])*100
+
+#USA Pos 15 min 
+
+
+
+KfUS_p15<-VECM(y1c15, 9, r=1, estim="ML")
+
+
+z<-cbind(log(y1c15$Sp),log(y1c15$Spxi),log(y1c15$Ca))
+
+par(mfrow=c(1,1))
+plot.xts(z)
+
+VARselect(na.omit(diff(10000*z)), lag.max = 5)
+
+KfUS_15c<-VECM(10000*(z), 5, r=1, estim="ML")
+
+
+
+
+summary(KfUS_15c)
+
+p1<-(z$Sp)*10000
+p2<-(z$Spxi)*10000
+p3<-(z$Ca)*10000
+
+
+ECM<-p1-1.178581*p2+0.4523906*p3  
+
+dp1<-diff(p1);colnames(dp1)<-"SP"
+dp2<-diff(p2);colnames(dp2)<-"SPXI1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2), Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),
+          EMCt)
+
+colnames(ob)<-c("SP","SP1","SP2","SP3","SP4","SP5",
+                "SPXI1","SPXI2","SPXI3","SPXI4","SPXI5",
+                "C1","C2","C3","C4","C5",
+                "EMCt1")
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$SP))
+
+Ar<-rbind(cons, Ob$SP1,Ob$SP2,Ob$SP3,Ob$SP4,Ob$SP5,
+          Ob$SPXI1,Ob$SPXI2,Ob$SPXI3,Ob$SPXI4,Ob$SPXI5,
+          Ob$C1, Ob$C2,Ob$C3, Ob$C4,Ob$C5, 
+          Ob$EMCt1)  #17
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,17,T)) #17
+
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações. Variancia dos erros desconhecida, estimar
+Tt <- diag(17) # mmatriz da relação entre os alphas Independentes entre si. em funcao de seus passados
+Rt <- matrix(c(rep(0,16),1),17,1)        #matriz de relação dos erros e independente
+
+
+Qt <- matrix(NA) #Matriz de covariancias dos alphas
+
+
+
+
+#              constante, 
+#              sp1,sp2, 
+#              spxi1,spxi2,
+#              ca1,ca2,
+#              ECM
+
+
+summary(KfUS_15c)
+
+a1 <- matrix(c(-2.0170,
+               0.0162,-0.0158,0.0087,0.0222,-0.0097,
+               0.0021,0.0042,-0.0184,-0.0088,0.0006,
+               -0.0026,-0.0042,0.0084,0.0057,0.0001,
+               0), 17,1) #Chutes iniciais
+
+
+P1 <- matrix(0, 17, 17) #Parte não difusa de a1
+
+#Parte difusa de 
+
+P1inf <- diag(17) # Parte difusa de a1
+
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$SP ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 17+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01,
+                                  0.01, 0.01, 0.01, 0.01, 0.01, 0.01), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+a1US15c<-y.SS.KFS$alphahat[,17]
+
+plot.ts(a1US15c)
+
+
+
+
+
+summary(KfUS_15c)
+
+p1<-(z$Spxi)*10000
+p2<-(z$Sp)*10000
+p3<-(z$Ca)*10000
+
+
+ECM<-p2-1.177467*p1+0.4545173*p3
+
+dp1<-diff(p1);colnames(dp1)<-"SPXI"
+dp2<-diff(p2);colnames(dp2)<-"SP1"
+dp3<-diff(p3);colnames(dp3)<-"C1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2), Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),
+          EMCt)
+
+
+
+colnames(ob)<-c("SPXI","SPXI1","SPXI2","SPXI3","SPXI4","SPXI5",
+                "SP1","SP2","SP3","SP4","SP5",
+                "C1","C2","C3","C4","C5",
+                "EMCt1")
+
+
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$SPXI))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$SPXI1,Ob$SPXI2,Ob$SPXI3,Ob$SPXI4,Ob$SPXI5,
+          Ob$SP1,Ob$SP2,Ob$SP3,Ob$SP4,Ob$SP5,
+          Ob$C1, Ob$C2,Ob$C3, Ob$C4,Ob$C5, 
+          Ob$EMCt1)  #29
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,17,T)) #23
+
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações. Variancia dos erros desconhecida, estimar
+Tt <- diag(17) # mmatriz da relação entre os alphas Independentes entre si. em funcao de seus passados
+
+
+Rt <- matrix(c(rep(0,16),1),17,1)        #matriz de relação dos erros e independente
+
+
+Qt <- matrix(NA) #Matriz de covariancias dos alphas
+
+
+
+#         constante, 
+#         SPXI1,SPXI2,
+#         SP1,SP2, 
+#         ca1,ca2,
+#         ECM
+
+summary(KfUS_15c)
+
+
+a1 <- matrix(c(-70.6675,
+               0.1861,-0.0888,-0.0269,-0.0621,-0.0366,
+               0.0588,0.0378,0.0441,0.1237,0.0776,
+               0.0645,0.0363,0.0120, 0.0312,0.0196,
+               0.0345), 17, 1) #Chutes iniciais
+
+
+P1 <- matrix(0, 17, 17) #Parte não difusa de a1
+
+#Parte difusa de 
+
+P1inf <- diag(17) # Parte difusa de a1
+
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$SPXI ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 17+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01,
+                                  0.01, 0.01, 0.01, 0.01, 0.01,0.01), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+#Alpha2 US 10 minutos pre covid 
+
+a2US15c<-y.SS.KFS$alphahat[,17]
+
+
+
+plot.ts(a2US15c)
+
+summary(KfUS_15c)
+
+p1<-(z$Ca)*10000
+p2<-(z$Sp)*10000
+p3<-(z$Spxi)*10000
+
+
+ECM<-p2-1.178581*p3+0.4523906*p1
+
+dp1<-diff(p1);colnames(dp1)<-"C"
+dp2<-diff(p2);colnames(dp2)<-"SP1"
+dp3<-diff(p3);colnames(dp3)<-"SPXI1"
+EMCt<-Lag(ECM,1); colnames(EMCt)<-"ECT1"
+
+
+ob<-cbind(dp1,Lag(dp1,1),Lag(dp1,2), Lag(dp1,3),Lag(dp1,4),Lag(dp1,5),
+          Lag(dp2,1),Lag(dp2,2),Lag(dp2,3),Lag(dp2,4),Lag(dp2,5),
+          Lag(dp3,1),Lag(dp3,2),Lag(dp3,3),Lag(dp3,4),Lag(dp3,5),
+          EMCt)
+
+colnames(ob)<-c("C","C1","C2","C3","C4","C5",
+                "SP1","SP2","SP3","SP4","SP5",
+                "SPXI1","SPXI2","SPXI3","SPXI4","SPXI5",
+                "EMCt1")
+
+
+
+
+head(ob)
+
+Ob<-na.omit(ob);head(Ob)
+
+#Aqui tenta construir
+T <- nrow(Ob)
+
+cons<-xts(rep(1,T), order.by = index(Ob$C))
+
+head(Ob)
+
+Ar<-rbind(cons, Ob$C1, Ob$C2,Ob$C3, Ob$C4, Ob$C5,
+          Ob$SP1, Ob$SP2, Ob$SP3, Ob$SP4, Ob$SP5,
+          Ob$SPXI1,Ob$SPXI2, Ob$SPXI3, Ob$SPXI4, Ob$SPXI5, 
+          Ob$EMCt1)  #23
+
+
+
+
+
+Zt<-array(Ar, dim=c(1,17,T)) #23
+
+
+
+Ht <- matrix(NA) #mmatrix de covariancias das observações. Variancia dos erros desconhecida, estimar
+Tt <- diag(17) # mmatriz da relação entre os alphas Independentes entre si. em funcao de seus passados
+Rt <- matrix(c(rep(0,16),1),17,1)        #matriz de relação dos erros e independente
+
+
+Qt <- matrix(NA) #Matriz de covariancias dos alphas
+
+
+
+#         constante, 
+#         ca1,ca2,
+#         SP1,SP2, 
+#         SPXI1,SPXI2, 
+#         ECM
+
+summary(KfUS_15c)
+
+
+a1 <- matrix(c(81.0175,
+               -0.0037,0.0022,-0.0242,-0.0045,0.0009,
+               0.0185,0.0273,-0.1264,-0.1545,0.0273,
+               0.0184,0.0225,0.0914,0.0526,0.0194,
+               -0.0394), 17, 1) #Chutes iniciais
+
+
+P1 <- matrix(0,17,17) #Parte não difusa de a1
+
+#Parte difusa de 
+
+P1inf <- diag(17) # Parte difusa de a1
+
+
+# define state-space CAPM model
+y.SS <- SSModel(Ob$C ~ -1 + SSMcustom(Z=Zt, T=Tt, R=Rt, Q=Qt, a1=a1, P1=P1, P1inf=P1inf), H=Ht)
+
+# estimate variances of innovations using maximum likelihood 14+1
+y.SS.ML <- fitSSM(y.SS, inits = c(0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001,
+                                  0.001, 0.001, 0.001, 0.001, 0.001, 0.001), method="BFGS")
+
+# Kalman filtering and smoothing, with parameters in Q and H set to maximum likelihood estimates
+y.SS.KFS <- KFS(y.SS.ML$model)
+
+
+
+#Alpha3 US 10 minutos pre covid 
+
+a3US15c<-y.SS.KFS$alphahat[,17]
+
+
+plot.ts(a3US15c)
+
+B_US_15c<-matrix(c(a1US15c,a2US15c,a3US15c), ncol = 3)
+
+
+
+
+Bo_15c_US<-matrix(cbind(
+  apply(B_US_15c, MARGIN = 1, FUN = csDin1),
+  apply(B_US_15c, MARGIN = 1, FUN = csDin2),
+  apply(B_US_15c, MARGIN = 1, FUN = csDin3)
+),
+ncol=3)
+
+
+par(mfrow=c(3,1))
+plot(100*ts(Bo_15c_US[,1]), main="", xlab="Time", ylab="S&P500 - 15 Minutes", col="red")
+plot(100*ts(Bo_15c_US[,2]), main="", xlab="Time", ylab="SPXI11 - 15 Minutes", col="blue")
+plot(100*ts(Bo_15c_US[,3]), main="", xlab="Time", ylab="Exchange rate - 15 Minutes", col="green")
+
+
+#######################3
+
+summary(Bo_15c_US[,3])*100
+
+sd(Bo_15c_US[,3])*100
+
+
+###
+
+
+
+
+
+
+
+
+
+
+
+
